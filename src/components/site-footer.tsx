@@ -13,9 +13,24 @@ export function SiteFooter() {
       <div className="mx-auto flex w-full max-w-[1235px] flex-col gap-5 px-4 py-8 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
         <div className="shrink-0">
           <Link href="/" className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full border border-border-strong bg-card font-mono text-xs uppercase tracking-[0.18em] text-heading shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-              MM
-            </div>
+            <picture>
+              <source
+                type="image/avif"
+                srcSet="/logo-70.avif 1x, /logo-140.avif 2x"
+              />
+              <source
+                type="image/webp"
+                srcSet="/logo-70.webp 1x, /logo-140.webp 2x"
+              />
+              <img
+                src="/logo-70.png"
+                srcSet="/logo-70.png 1x, /logo-140.png 2x"
+                width="40"
+                height="40"
+                alt="MinutesMap logo"
+                className="h-10 w-10 object-contain"
+              />
+            </picture>
             <span className="text-[1.1rem] font-semibold tracking-[-0.02em] text-foreground">
               {siteConfig.name}
             </span>
