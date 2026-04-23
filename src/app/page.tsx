@@ -1,65 +1,121 @@
-import Image from "next/image";
+import Link from "next/link";
+import { SiteHeader } from "@/components/site-header";
+import { siteConfig } from "@/lib/site-config";
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <main className="min-h-screen px-4 py-2 sm:px-6 lg:px-8">
+      <SiteHeader />
+
+      <div className="mx-auto mt-2 flex w-full max-w-[1235px] flex-col gap-5 pb-10">
+        <section className="rounded-[20px] border border-border-strong bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)] sm:p-8 lg:p-10">
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+            <div className="space-y-6">
+              <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-muted">
+                MinutesMap Frontend Styling
+              </p>
+              <div className="space-y-4">
+                <h1 className="max-w-4xl text-4xl font-semibold leading-tight tracking-[-0.03em] text-heading sm:text-5xl lg:text-6xl">
+                  NBA team pages with the same clean shell as the main
+                  BasketballStats frontend.
+                </h1>
+                <p className="max-w-3xl text-base leading-8 text-copy sm:text-lg">
+                  {siteConfig.description} This pass pulls over the sibling
+                  app&apos;s neutral page background, white cards, soft borders,
+                  muted typography, and pill-style controls without creating a
+                  shared design system yet.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Link
+                  href="/teams"
+                  className="inline-flex items-center justify-center rounded-full bg-accent px-6 py-3 font-medium text-accent-foreground transition-colors hover:bg-accent-strong"
+                >
+                  Browse Teams
+                </Link>
+                <a
+                  href="https://vercel.com/new"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center rounded-full border border-border-strong bg-card px-6 py-3 font-medium text-copy transition-colors hover:bg-hover hover:text-foreground"
+                >
+                  Deploy To Vercel
+                </a>
+              </div>
+            </div>
+
+            <div className="grid gap-4">
+              <div className="rounded-[20px] border border-border-strong bg-card-alt p-6">
+                <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-muted">
+                  Theme Carryover
+                </p>
+                <ul className="mt-4 space-y-3 text-sm leading-7 text-copy">
+                  <li>Cool gray page background instead of the warm gradient</li>
+                  <li>White card surfaces with soft neutral borders</li>
+                  <li>System font stack and restrained text hierarchy</li>
+                  <li>Blue-tinted selection states with dark neutral actions</li>
+                </ul>
+              </div>
+
+              <div className="rounded-[20px] border border-border-strong bg-card p-6">
+                <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-muted">
+                  Ready Next
+                </p>
+                <div className="mt-4 space-y-3 text-sm leading-7 text-copy">
+                  <p>Set up team slug routes in `src/app/teams/[teamSlug]`.</p>
+                  <p>Move shared roster or franchise data into `src/data`.</p>
+                  <p>Layer real team branding into the content areas later.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="grid gap-5 lg:grid-cols-3">
+          <article className="rounded-[20px] border border-border-strong bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)]">
+            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-muted">
+              App Shell
+            </p>
+            <h2 className="mt-4 text-2xl font-semibold tracking-[-0.02em] text-heading">
+              Centered, card-based layout
+            </h2>
+            <p className="mt-3 text-sm leading-7 text-copy">
+              The page now follows the same overall structure as the sibling
+              frontend: transparent header, fixed content width, and stacked
+              surface cards over a neutral page background.
+            </p>
+          </article>
+
+          <article className="rounded-[20px] border border-border-strong bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)]">
+            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-muted">
+              Navigation
+            </p>
+            <h2 className="mt-4 text-2xl font-semibold tracking-[-0.02em] text-heading">
+              Pill controls and subtle hover states
+            </h2>
+            <p className="mt-3 text-sm leading-7 text-copy">
+              Header links and primary actions now use the same soft border,
+              pill radius, and restrained interaction palette seen in the main
+              MinutesMap UI.
+            </p>
+          </article>
+
+          <article className="rounded-[20px] border border-border-strong bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)]">
+            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-muted">
+              Foundation
+            </p>
+            <h2 className="mt-4 text-2xl font-semibold tracking-[-0.02em] text-heading">
+              Theme tokens are local for now
+            </h2>
+            <p className="mt-3 text-sm leading-7 text-copy">
+              The copied colors and surface tokens live directly in
+              `globals.css`, which keeps this pass simple while preserving a
+              straightforward path to a shared system later.
+            </p>
+          </article>
+        </section>
+      </div>
+    </main>
   );
 }

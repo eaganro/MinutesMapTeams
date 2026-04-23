@@ -1,26 +1,80 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #eaebed;
+  --foreground: #222222;
+  --copy: #444444;
+  --muted: #6c6d6f;
+  --heading: #374151;
+  --card: #fafafa;
+  --card-alt: #f0f0f0;
+  --border: #e0e0e0;
+  --border-strong: #e5e7eb;
+  --hover: rgba(0, 0, 0, 0.05);
+  --selected: #e7f1ff;
+  --accent: #1f2937;
+  --accent-strong: #111827;
+  --accent-foreground: #ffffff;
+  --focus: rgba(59, 130, 246, 0.5);
+  --font-family-sans:
+    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+    Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  --font-family-mono: "SFMono-Regular", "Menlo", "Consolas", monospace;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-copy: var(--copy);
+  --color-muted: var(--muted);
+  --color-heading: var(--heading);
+  --color-card: var(--card);
+  --color-card-alt: var(--card-alt);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-hover: var(--hover);
+  --color-selected: var(--selected);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-focus: var(--focus);
+  --font-sans: var(--font-family-sans);
+  --font-mono: var(--font-family-mono);
+  --font-display: var(--font-family-sans);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
+  min-height: 100vh;
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--background);
+  font-family: var(--font-family-sans);
+  margin: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+::selection {
+  background: rgba(59, 130, 246, 0.18);
+}
+
+main {
+  isolation: isolate;
 }
