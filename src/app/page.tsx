@@ -4,7 +4,7 @@ import { siteConfig } from "@/lib/site-config";
 export default function Home() {
   return (
     <main className="mx-auto mt-2 flex w-full max-w-[1235px] flex-col gap-5 pb-10">
-        <section className="rounded-[20px] border border-border-strong bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)] sm:p-8 lg:p-10">
+        <section className="rounded-[20px] bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)] sm:p-8 lg:p-10">
           <div className="grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
             <div className="space-y-6">
               <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-muted">
@@ -42,7 +42,7 @@ export default function Home() {
             </div>
 
             <div className="grid gap-4">
-              <div className="rounded-[20px] border border-border-strong bg-card-alt p-6">
+              <div className="rounded-[20px] bg-card-alt p-6">
                 <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-muted">
                   Theme Carryover
                 </p>
@@ -54,7 +54,7 @@ export default function Home() {
                 </ul>
               </div>
 
-              <div className="rounded-[20px] border border-border-strong bg-card p-6">
+              <div className="rounded-[20px] bg-card p-6">
                 <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-muted">
                   Ready Next
                 </p>
@@ -69,7 +69,7 @@ export default function Home() {
         </section>
 
         <section className="grid gap-5 lg:grid-cols-3">
-          <article className="rounded-[20px] border border-border-strong bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)]">
+          <article className="rounded-[20px] bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)]">
             <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-muted">
               App Shell
             </p>
@@ -83,7 +83,7 @@ export default function Home() {
             </p>
           </article>
 
-          <article className="rounded-[20px] border border-border-strong bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)]">
+          <article className="rounded-[20px] bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)]">
             <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-muted">
               Navigation
             </p>
@@ -97,7 +97,7 @@ export default function Home() {
             </p>
           </article>
 
-          <article className="rounded-[20px] border border-border-strong bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)]">
+          <article className="rounded-[20px] bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)]">
             <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-muted">
               Foundation
             </p>

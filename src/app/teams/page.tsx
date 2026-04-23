@@ -5,7 +5,7 @@ export const metadata = {
 export default function TeamsPage() {
   return (
     <main className="mx-auto mt-2 flex w-full max-w-[1235px] flex-col gap-5 pb-10">
-        <section className="rounded-[20px] border border-border-strong bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)] sm:p-8 lg:p-10">
+        <section className="rounded-[20px] bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)] sm:p-8 lg:p-10">
           <div className="space-y-5">
             <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-muted">
               Teams Placeholder
@@ -22,7 +22,7 @@ export default function TeamsPage() {
         </section>
 
         <section className="grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
-          <article className="rounded-[20px] border border-border-strong bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)]">
+          <article className="rounded-[20px] bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)]">
             <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-muted">
               Example Structure
             </p>
@@ -50,7 +50,7 @@ export default function TeamsPage() {
             </p>
           </article>
 
-          <article className="rounded-[20px] border border-border-strong bg-card-alt p-6">
+          <article className="rounded-[20px] bg-card-alt p-6">
             <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-muted">
               Next Buildout
             </p>
