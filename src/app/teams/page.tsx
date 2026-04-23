@@ -1,15 +1,10 @@
-import { SiteHeader } from "@/components/site-header";
-
 export const metadata = {
   title: "Teams",
 };
 
 export default function TeamsPage() {
   return (
-    <main className="min-h-screen px-4 py-2 sm:px-6 lg:px-8">
-      <SiteHeader />
-
-      <div className="mx-auto mt-2 flex w-full max-w-[1235px] flex-col gap-5 pb-10">
+    <main className="mx-auto mt-2 flex w-full max-w-[1235px] flex-col gap-5 pb-10">
         <section className="rounded-[20px] border border-border-strong bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)] sm:p-8 lg:p-10">
           <div className="space-y-5">
             <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-muted">
@@ -66,7 +61,6 @@ export default function TeamsPage() {
             </div>
           </article>
         </section>
-      </div>
     </main>
   );
 }
