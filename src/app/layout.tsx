@@ -56,8 +56,8 @@ export default function RootLayout({
         <div className="min-h-screen px-4 py-2 sm:px-6 lg:px-8">
           <SiteHeader />
           {children}
-          <SiteFooter />
         </div>
+        <SiteFooter />
       </body>
     </html>
   );
