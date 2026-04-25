@@ -7,6 +7,7 @@ import {
   getTeamPageData,
   isTeamAbbreviation,
   TEAM_ABBREVIATIONS,
+  type StatLine,
   type TeamPlayerSeason,
 } from "@/lib/team-data";
 
@@ -35,19 +36,47 @@ function formatUpdatedAt(value: string) {
   }).format(new Date(value));
 }
 
+function getPlayerAverageBox(player: TeamPlayerSeason) {
+  if (!player.averages) {
+    return null;
+  }
+
+  if ("box" in player.averages) {
+    return player.averages.box;
+  }
+
+  return player.averages;
+}
+
+function getPlayerTotalBox(player: TeamPlayerSeason): StatLine | null {
+  return player.totals?.box ?? player.box ?? null;
+}
+
+function getPlayerAverageValue(
+  player: TeamPlayerSeason,
+  stat: keyof Pick<StatLine, "pts" | "reb" | "ast">,
+) {
+  return getPlayerAverageBox(player)?.[stat] ?? 0;
+}
+
 function getTopPlayers(players: TeamPlayerSeason[]) {
   const sortByMinutes = [...players].sort(
-    (left, right) => (right.box.seconds ?? 0) - (left.box.seconds ?? 0),
+    (left, right) =>
+      (getPlayerTotalBox(right)?.seconds ?? 0) -
+      (getPlayerTotalBox(left)?.seconds ?? 0),
   );
 
   const scoringLeader = [...players].sort(
-    (left, right) => right.averages.pts - left.averages.pts,
+    (left, right) =>
+      getPlayerAverageValue(right, "pts") - getPlayerAverageValue(left, "pts"),
   )[0];
   const reboundLeader = [...players].sort(
-    (left, right) => right.averages.reb - left.averages.reb,
+    (left, right) =>
+      getPlayerAverageValue(right, "reb") - getPlayerAverageValue(left, "reb"),
   )[0];
   const assistLeader = [...players].sort(
-    (left, right) => right.averages.ast - left.averages.ast,
+    (left, right) =>
+      getPlayerAverageValue(right, "ast") - getPlayerAverageValue(left, "ast"),
   )[0];
 
   return {
@@ -234,6 +263,7 @@ export default async function TeamDetailPage({ params }: TeamPageProps) {
             {leaders.map((player, index) => {
               const label =
                 index === 0 ? "Scoring" : index === 1 ? "Rebounding" : "Playmaking";
+              const averages = getPlayerAverageBox(player);
 
               return (
                 <div key={`${label}-${player.playerId}`} className="rounded-[18px] bg-card-alt p-4">
@@ -244,9 +274,9 @@ export default async function TeamDetailPage({ params }: TeamPageProps) {
                     {player.name}
                   </h3>
                   <div className="mt-4 space-y-2 text-sm text-copy">
-                    <p>{player.averages.pts.toFixed(1)} PPG</p>
-                    <p>{player.averages.reb.toFixed(1)} RPG</p>
-                    <p>{player.averages.ast.toFixed(1)} APG</p>
+                    <p>{(averages?.pts ?? 0).toFixed(1)} PPG</p>
+                    <p>{(averages?.reb ?? 0).toFixed(1)} RPG</p>
+                    <p>{(averages?.ast ?? 0).toFixed(1)} APG</p>
                   </div>
                 </div>
               );

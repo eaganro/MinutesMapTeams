@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type {
+  StatLine,
   TeamGame,
   TeamGameSeasonType,
   TeamPlayerSeason,
@@ -20,6 +21,54 @@ const SEASON_TYPE_LABELS: Record<string, string> = {
 };
 
 type GameFilter = "all" | TeamGameSeasonType;
+type SeasonTypeOption = {
+  value: GameFilter;
+  label: string;
+  count: number;
+};
+type PlayerTableRow = {
+  playerId: number;
+  name: string;
+  games: number;
+  averages: StatLine;
+  totalSeconds: number;
+};
+type StatNumberKey =
+  | "pts"
+  | "fgm"
+  | "fga"
+  | "tpm"
+  | "tpa"
+  | "ftm"
+  | "fta"
+  | "oreb"
+  | "dreb"
+  | "reb"
+  | "ast"
+  | "stl"
+  | "blk"
+  | "to"
+  | "pf"
+  | "pm";
+
+const STAT_NUMBER_KEYS: StatNumberKey[] = [
+  "pts",
+  "fgm",
+  "fga",
+  "tpm",
+  "tpa",
+  "ftm",
+  "fta",
+  "oreb",
+  "dreb",
+  "reb",
+  "ast",
+  "stl",
+  "blk",
+  "to",
+  "pf",
+  "pm",
+];
 
 function formatSignedNumber(value: number) {
   return value > 0 ? `+${value}` : `${value}`;
@@ -35,6 +84,28 @@ function formatGameDate(value: string) {
     day: "numeric",
     year: "numeric",
   }).format(new Date(`${value}T12:00:00Z`));
+}
+
+function formatSecondsAsMinutes(seconds: number) {
+  const roundedSeconds = Math.max(0, Math.round(seconds));
+  const minutes = Math.floor(roundedSeconds / 60);
+  const remainderSeconds = roundedSeconds % 60;
+
+  return `${minutes}:${remainderSeconds.toString().padStart(2, "0")}`;
+}
+
+function parseMinutesToSeconds(value?: string) {
+  if (!value) {
+    return 0;
+  }
+
+  const [minutes, seconds] = value.split(":").map(Number);
+
+  if (!Number.isFinite(minutes) || !Number.isFinite(seconds)) {
+    return 0;
+  }
+
+  return minutes * 60 + seconds;
 }
 
 function formatSeasonTypeLabel(seasonType: string) {
@@ -80,6 +151,223 @@ function getSeasonTypeOptions(games: TeamGame[]) {
   ];
 }
 
+function getPlayerAverageBox(player: TeamPlayerSeason) {
+  if (!player.averages) {
+    return null;
+  }
+
+  if ("box" in player.averages) {
+    return player.averages.box;
+  }
+
+  return player.averages;
+}
+
+function getPlayerAllRow(player: TeamPlayerSeason): PlayerTableRow | null {
+  const games = player.totals?.games ?? player.games ?? 0;
+  const averages = getPlayerAverageBox(player);
+  const totalBox = player.totals?.box ?? player.box;
+  const totalSeconds =
+    totalBox?.seconds ?? parseMinutesToSeconds(totalBox?.min);
+
+  if (!games || !averages) {
+    return null;
+  }
+
+  return {
+    playerId: player.playerId,
+    name: player.name,
+    games,
+    averages,
+    totalSeconds,
+  };
+}
+
+function getPlayerSeasonTypeRow(
+  player: TeamPlayerSeason,
+  seasonType: TeamGameSeasonType,
+): PlayerTableRow | null {
+  const split = player.bySeasonType?.[seasonType];
+
+  if (!split?.games) {
+    return null;
+  }
+
+  return {
+    playerId: player.playerId,
+    name: player.name,
+    games: split.games,
+    averages: split.averages.box,
+    totalSeconds:
+      split.totals.box.seconds ?? parseMinutesToSeconds(split.totals.box.min),
+  };
+}
+
+function createEmptyStatLine(): StatLine {
+  return {
+    min: "0:00",
+    pts: 0,
+    fgm: 0,
+    fga: 0,
+    tpm: 0,
+    tpa: 0,
+    ftm: 0,
+    fta: 0,
+    oreb: 0,
+    dreb: 0,
+    reb: 0,
+    ast: 0,
+    stl: 0,
+    blk: 0,
+    to: 0,
+    pf: 0,
+    pm: 0,
+  };
+}
+
+function addBoxScore(total: StatLine, box: StatLine) {
+  total.seconds =
+    (total.seconds ?? 0) + (box.seconds ?? parseMinutesToSeconds(box.min));
+
+  for (const key of STAT_NUMBER_KEYS) {
+    total[key] = (total[key] ?? 0) + (box[key] ?? 0);
+  }
+}
+
+function averageBoxScore(total: StatLine, games: number): StatLine {
+  const averages = createEmptyStatLine();
+  const divisor = Math.max(games, 1);
+
+  for (const key of STAT_NUMBER_KEYS) {
+    averages[key] = Number(((total[key] ?? 0) / divisor).toFixed(2));
+  }
+
+  averages.min = formatSecondsAsMinutes((total.seconds ?? 0) / divisor);
+
+  return averages;
+}
+
+function getRowsFromGameBoxes(games: TeamGame[]) {
+  const rowsByPlayer = new Map<
+    number,
+    {
+      playerId: number;
+      name: string;
+      games: number;
+      totals: StatLine;
+    }
+  >();
+
+  for (const game of games) {
+    for (const player of game.players) {
+      const current = rowsByPlayer.get(player.playerId) ?? {
+        playerId: player.playerId,
+        name: player.name,
+        games: 0,
+        totals: createEmptyStatLine(),
+      };
+
+      current.games += 1;
+      addBoxScore(current.totals, player.box);
+      rowsByPlayer.set(player.playerId, current);
+    }
+  }
+
+  return [...rowsByPlayer.values()].map((player) => ({
+    playerId: player.playerId,
+    name: player.name,
+    games: player.games,
+    averages: averageBoxScore(player.totals, player.games),
+    totalSeconds: player.totals.seconds ?? 0,
+  }));
+}
+
+function sortPlayerRows(rows: PlayerTableRow[]) {
+  return [...rows].sort(
+    (left, right) => right.totalSeconds - left.totalSeconds,
+  );
+}
+
+function getPlayerRowsForFilter(
+  players: TeamPlayerSeason[],
+  games: TeamGame[],
+  filter: GameFilter,
+) {
+  if (filter === "all") {
+    const rows = players
+      .map((player) => getPlayerAllRow(player))
+      .filter((player): player is PlayerTableRow => Boolean(player));
+
+    return sortPlayerRows(rows);
+  }
+
+  const splitRows = players
+    .map((player) => getPlayerSeasonTypeRow(player, filter))
+    .filter((player): player is PlayerTableRow => Boolean(player));
+
+  if (splitRows.length) {
+    return sortPlayerRows(splitRows);
+  }
+
+  return sortPlayerRows(
+    getRowsFromGameBoxes(games.filter((game) => game.seasonType === filter)),
+  );
+}
+
+function getPlayerSeasonTypeOptions(
+  players: TeamPlayerSeason[],
+  games: TeamGame[],
+  seasonTypeOptions: SeasonTypeOption[],
+) {
+  return seasonTypeOptions.map((option) => ({
+    ...option,
+    count: getPlayerRowsForFilter(players, games, option.value).length,
+  }));
+}
+
+function SeasonTypeSelector({
+  ariaLabel,
+  options,
+  selectedValue,
+  onSelect,
+}: {
+  ariaLabel: string;
+  options: SeasonTypeOption[];
+  selectedValue: GameFilter;
+  onSelect: (option: SeasonTypeOption) => void;
+}) {
+  return (
+    <div
+      className="flex w-fit max-w-full overflow-x-auto overflow-y-hidden rounded-full border border-divider bg-card-alt"
+      role="group"
+      aria-label={ariaLabel}
+    >
+      {options.map((option) => {
+        const isSelected = selectedValue === option.value;
+
+        return (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => onSelect(option)}
+            className={`shrink-0 whitespace-nowrap border-0 px-3 py-1.5 text-[0.72rem] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
+              isSelected
+                ? "bg-selected text-heading"
+                : "bg-transparent text-muted hover:bg-hover hover:text-foreground"
+            }`}
+            aria-pressed={isSelected}
+          >
+            {option.label}
+            <span className="ml-2 text-current opacity-70">
+              {option.count}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 type TeamPageDetailsProps = {
   games: TeamGame[];
   players: TeamPlayerSeason[];
@@ -95,18 +383,35 @@ export function TeamPageDetails({
   const [visibleGames, setVisibleGames] = useState(
     Math.min(INITIAL_GAME_COUNT, games.length),
   );
+  const [selectedPlayerFilter, setSelectedPlayerFilter] =
+    useState<GameFilter>("all");
   const [selectedGameFilter, setSelectedGameFilter] =
     useState<GameFilter>("all");
 
-  const displayedPlayers = players.slice(0, visiblePlayers);
   const seasonTypeOptions = getSeasonTypeOptions(games);
+  const playerSeasonTypeOptions = getPlayerSeasonTypeOptions(
+    players,
+    games,
+    seasonTypeOptions,
+  );
+  const filteredPlayers = getPlayerRowsForFilter(
+    players,
+    games,
+    selectedPlayerFilter,
+  );
+  const displayedPlayers = filteredPlayers.slice(0, visiblePlayers);
   const filteredGames =
     selectedGameFilter === "all"
       ? games
       : games.filter((game) => game.seasonType === selectedGameFilter);
   const displayedGames = filteredGames.slice(0, visibleGames);
-  const hasMorePlayers = visiblePlayers < players.length;
+  const hasMorePlayers = visiblePlayers < filteredPlayers.length;
   const hasMoreGames = visibleGames < filteredGames.length;
+
+  function selectPlayerFilter(option: SeasonTypeOption) {
+    setSelectedPlayerFilter(option.value);
+    setVisiblePlayers(Math.min(INITIAL_PLAYER_COUNT, option.count));
+  }
 
   function selectGameFilter(nextFilter: GameFilter, nextCount: number) {
     setSelectedGameFilter(nextFilter);
@@ -116,7 +421,7 @@ export function TeamPageDetails({
   return (
     <section className="grid gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
       <article className="rounded-[20px] bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)]">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-muted">
               Player Table
@@ -125,9 +430,17 @@ export function TeamPageDetails({
               Full roster output
             </h2>
           </div>
-          <p className="text-sm text-muted">
-            {displayedPlayers.length} of {players.length}
-          </p>
+          <div className="flex flex-col gap-3 sm:items-end">
+            <SeasonTypeSelector
+              ariaLabel="Filter players by season type"
+              options={playerSeasonTypeOptions}
+              selectedValue={selectedPlayerFilter}
+              onSelect={selectPlayerFilter}
+            />
+            <p className="text-sm text-muted">
+              {displayedPlayers.length} of {filteredPlayers.length}
+            </p>
+          </div>
         </div>
 
         <div className="mt-6 overflow-x-auto">
@@ -188,7 +501,10 @@ export function TeamPageDetails({
               type="button"
               onClick={() =>
                 setVisiblePlayers((currentValue) =>
-                  Math.min(currentValue + PLAYER_PAGE_SIZE, players.length),
+                  Math.min(
+                    currentValue + PLAYER_PAGE_SIZE,
+                    filteredPlayers.length,
+                  ),
                 )
               }
               className="rounded-full border border-border-strong bg-card-alt px-5 py-2 text-sm text-copy transition-colors hover:bg-hover hover:text-foreground"
@@ -210,36 +526,14 @@ export function TeamPageDetails({
             </h2>
           </div>
           <div className="flex flex-col gap-3 sm:items-end">
-            <div
-              className="flex w-fit max-w-full overflow-x-auto overflow-y-hidden rounded-full border border-divider bg-card-alt"
-              role="group"
-              aria-label="Filter games by season type"
-            >
-              {seasonTypeOptions.map((option) => {
-                const isSelected = selectedGameFilter === option.value;
-
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() =>
-                      selectGameFilter(option.value, option.count)
-                    }
-                    className={`shrink-0 whitespace-nowrap border-0 px-3 py-1.5 text-[0.72rem] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
-                      isSelected
-                        ? "bg-selected text-heading"
-                        : "bg-transparent text-muted hover:bg-hover hover:text-foreground"
-                    }`}
-                    aria-pressed={isSelected}
-                  >
-                    {option.label}
-                    <span className="ml-2 text-current opacity-70">
-                      {option.count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+            <SeasonTypeSelector
+              ariaLabel="Filter games by season type"
+              options={seasonTypeOptions}
+              selectedValue={selectedGameFilter}
+              onSelect={(option) =>
+                selectGameFilter(option.value, option.count)
+              }
+            />
             <p className="text-sm text-muted">
               {displayedGames.length} of {filteredGames.length}
             </p>

@@ -41,7 +41,7 @@ const s3Client = new S3Client({
   region: process.env.AWS_REGION ?? "us-east-1",
 });
 
-type StatLine = {
+export type StatLine = {
   seconds?: number;
   min: string;
   pts: number;
@@ -74,6 +74,33 @@ export type TeamGameSeasonType =
   | "play_in"
   | "playoffs"
   | (string & {});
+
+type TeamRecord = {
+  wins: number;
+  losses: number;
+  ties: number;
+};
+
+type TeamSummary = {
+  id: number;
+  abbr: string;
+  name: string;
+};
+
+type PlayerSeasonTotals = TeamRecord & {
+  games: number;
+  box: StatLine;
+};
+
+type PlayerSeasonSplit = {
+  games: number;
+  teams?: TeamSummary[];
+  record?: TeamRecord;
+  totals: PlayerSeasonTotals;
+  averages: {
+    box: StatLine;
+  };
+};
 
 export type TeamGame = {
   gameId: string;
@@ -112,9 +139,13 @@ export type TeamGame = {
 export type TeamPlayerSeason = {
   playerId: number;
   name: string;
-  games: number;
-  box: StatLine;
-  averages: StatLine;
+  games?: number;
+  box?: StatLine;
+  averages?: StatLine | {
+    box: StatLine;
+  };
+  totals?: PlayerSeasonTotals;
+  bySeasonType?: Partial<Record<TeamGameSeasonType, PlayerSeasonSplit>>;
 };
 
 export type TeamPageData = {
