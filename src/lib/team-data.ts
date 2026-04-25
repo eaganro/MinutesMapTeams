@@ -68,6 +68,13 @@ type Leader = {
   value: number;
 };
 
+export type TeamGameSeasonType =
+  | "preseason"
+  | "regular"
+  | "play_in"
+  | "playoffs"
+  | (string & {});
+
 export type TeamGame = {
   gameId: string;
   nbaGameId: string;
@@ -75,6 +82,7 @@ export type TeamGame = {
   start: string;
   homeAway: "home" | "away";
   season: string;
+  seasonType: TeamGameSeasonType;
   opponentId: number;
   opponentAbbr: string;
   opponentName: string;

@@ -1,12 +1,25 @@
 "use client";
 
 import { useState } from "react";
-import type { TeamGame, TeamPlayerSeason } from "@/lib/team-data";
+import type {
+  TeamGame,
+  TeamGameSeasonType,
+  TeamPlayerSeason,
+} from "@/lib/team-data";
 
 const INITIAL_PLAYER_COUNT = 12;
 const PLAYER_PAGE_SIZE = 12;
 const INITIAL_GAME_COUNT = 10;
 const GAME_PAGE_SIZE = 10;
+const SEASON_TYPE_ORDER = ["preseason", "regular", "play_in", "playoffs"];
+const SEASON_TYPE_LABELS: Record<string, string> = {
+  preseason: "Preseason",
+  regular: "Regular Season",
+  play_in: "Play-In",
+  playoffs: "Playoffs",
+};
+
+type GameFilter = "all" | TeamGameSeasonType;
 
 function formatSignedNumber(value: number) {
   return value > 0 ? `+${value}` : `${value}`;
@@ -24,6 +37,49 @@ function formatGameDate(value: string) {
   }).format(new Date(`${value}T12:00:00Z`));
 }
 
+function formatSeasonTypeLabel(seasonType: string) {
+  return (
+    SEASON_TYPE_LABELS[seasonType] ??
+    seasonType
+      .split(/[_-]/)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ")
+  );
+}
+
+function getSeasonTypeCounts(games: TeamGame[]) {
+  return games.reduce<Map<string, number>>((counts, game) => {
+    counts.set(game.seasonType, (counts.get(game.seasonType) ?? 0) + 1);
+    return counts;
+  }, new Map());
+}
+
+function getSeasonTypeOptions(games: TeamGame[]) {
+  const counts = getSeasonTypeCounts(games);
+  const orderedTypes = [
+    ...SEASON_TYPE_ORDER.filter((seasonType) => counts.has(seasonType)),
+    ...[...counts.keys()]
+      .filter((seasonType) => !SEASON_TYPE_ORDER.includes(seasonType))
+      .sort((left, right) =>
+        formatSeasonTypeLabel(left).localeCompare(formatSeasonTypeLabel(right)),
+      ),
+  ];
+
+  return [
+    {
+      value: "all" as const,
+      label: "All",
+      count: games.length,
+    },
+    ...orderedTypes.map((seasonType) => ({
+      value: seasonType,
+      label: formatSeasonTypeLabel(seasonType),
+      count: counts.get(seasonType) ?? 0,
+    })),
+  ];
+}
+
 type TeamPageDetailsProps = {
   games: TeamGame[];
   players: TeamPlayerSeason[];
@@ -39,11 +95,23 @@ export function TeamPageDetails({
   const [visibleGames, setVisibleGames] = useState(
     Math.min(INITIAL_GAME_COUNT, games.length),
   );
+  const [selectedGameFilter, setSelectedGameFilter] =
+    useState<GameFilter>("all");
 
   const displayedPlayers = players.slice(0, visiblePlayers);
-  const displayedGames = games.slice(0, visibleGames);
+  const seasonTypeOptions = getSeasonTypeOptions(games);
+  const filteredGames =
+    selectedGameFilter === "all"
+      ? games
+      : games.filter((game) => game.seasonType === selectedGameFilter);
+  const displayedGames = filteredGames.slice(0, visibleGames);
   const hasMorePlayers = visiblePlayers < players.length;
-  const hasMoreGames = visibleGames < games.length;
+  const hasMoreGames = visibleGames < filteredGames.length;
+
+  function selectGameFilter(nextFilter: GameFilter, nextCount: number) {
+    setSelectedGameFilter(nextFilter);
+    setVisibleGames(Math.min(INITIAL_GAME_COUNT, nextCount));
+  }
 
   return (
     <section className="grid gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
@@ -132,18 +200,50 @@ export function TeamPageDetails({
       </article>
 
       <article className="rounded-[20px] bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)]">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-muted">
               Game Log
             </p>
             <h2 className="mt-3 text-2xl font-semibold tracking-[-0.02em] text-heading">
-              Full season results
+              Game results
             </h2>
           </div>
-          <p className="text-sm text-muted">
-            {displayedGames.length} of {games.length}
-          </p>
+          <div className="flex flex-col gap-3 sm:items-end">
+            <div
+              className="flex w-fit max-w-full overflow-x-auto overflow-y-hidden rounded-full border border-divider bg-card-alt"
+              role="group"
+              aria-label="Filter games by season type"
+            >
+              {seasonTypeOptions.map((option) => {
+                const isSelected = selectedGameFilter === option.value;
+
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() =>
+                      selectGameFilter(option.value, option.count)
+                    }
+                    className={`shrink-0 whitespace-nowrap border-0 px-3 py-1.5 text-[0.72rem] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
+                      isSelected
+                        ? "bg-selected text-heading"
+                        : "bg-transparent text-muted hover:bg-hover hover:text-foreground"
+                    }`}
+                    aria-pressed={isSelected}
+                  >
+                    {option.label}
+                    <span className="ml-2 text-current opacity-70">
+                      {option.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-sm text-muted">
+              {displayedGames.length} of {filteredGames.length}
+            </p>
+          </div>
         </div>
 
         <div className="mt-6 space-y-3">
@@ -163,6 +263,9 @@ export function TeamPageDetails({
                       }`}
                     >
                       {game.result}
+                    </span>
+                    <span className="rounded-full bg-card px-3 py-1 font-mono text-[11px] uppercase tracking-[0.18em] text-muted">
+                      {formatSeasonTypeLabel(game.seasonType)}
                     </span>
                     <span className="font-medium text-foreground">
                       {formatOpponentLabel(game.homeAway, game.opponentAbbr)}
@@ -209,7 +312,7 @@ export function TeamPageDetails({
               type="button"
               onClick={() =>
                 setVisibleGames((currentValue) =>
-                  Math.min(currentValue + GAME_PAGE_SIZE, games.length),
+                  Math.min(currentValue + GAME_PAGE_SIZE, filteredGames.length),
                 )
               }
               className="rounded-full border border-border-strong bg-card-alt px-5 py-2 text-sm text-copy transition-colors hover:bg-hover hover:text-foreground"
