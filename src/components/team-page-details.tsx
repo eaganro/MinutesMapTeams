@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import type {
   StatLine,
@@ -7,6 +8,10 @@ import type {
   TeamGameSeasonType,
   TeamPlayerSeason,
 } from "@/lib/team-data";
+import {
+  SeasonTypeSelector,
+  type SeasonTypeSelectorOption,
+} from "@/components/season-type-selector";
 
 const INITIAL_PLAYER_COUNT = 12;
 const PLAYER_PAGE_SIZE = 12;
@@ -21,11 +26,7 @@ const SEASON_TYPE_LABELS: Record<string, string> = {
 };
 
 type GameFilter = "all" | TeamGameSeasonType;
-type SeasonTypeOption = {
-  value: GameFilter;
-  label: string;
-  count: number;
-};
+type SeasonTypeOption = SeasonTypeSelectorOption<GameFilter>;
 type PlayerTableRow = {
   playerId: number;
   name: string;
@@ -325,49 +326,6 @@ function getPlayerSeasonTypeOptions(
   }));
 }
 
-function SeasonTypeSelector({
-  ariaLabel,
-  options,
-  selectedValue,
-  onSelect,
-}: {
-  ariaLabel: string;
-  options: SeasonTypeOption[];
-  selectedValue: GameFilter;
-  onSelect: (option: SeasonTypeOption) => void;
-}) {
-  return (
-    <div
-      className="flex w-fit max-w-full overflow-x-auto overflow-y-hidden rounded-full border border-divider bg-card-alt"
-      role="group"
-      aria-label={ariaLabel}
-    >
-      {options.map((option) => {
-        const isSelected = selectedValue === option.value;
-
-        return (
-          <button
-            key={option.value}
-            type="button"
-            onClick={() => onSelect(option)}
-            className={`shrink-0 whitespace-nowrap border-0 px-3 py-1.5 text-[0.72rem] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
-              isSelected
-                ? "bg-selected text-heading"
-                : "bg-transparent text-muted hover:bg-hover hover:text-foreground"
-            }`}
-            aria-pressed={isSelected}
-          >
-            {option.label}
-            <span className="ml-2 text-current opacity-70">
-              {option.count}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 type TeamPageDetailsProps = {
   games: TeamGame[];
   players: TeamPlayerSeason[];
@@ -477,7 +435,12 @@ export function TeamPageDetails({
                   className="rounded-[16px] bg-card-alt text-copy"
                 >
                   <td className="rounded-l-[16px] px-3 py-3 font-medium text-foreground">
-                    {player.name}
+                    <Link
+                      href={`/players/${player.playerId}`}
+                      className="transition-colors hover:text-accent-strong"
+                    >
+                      {player.name}
+                    </Link>
                   </td>
                   <td className="px-3 py-3">{player.games}</td>
                   <td className="px-3 py-3">{player.averages.min}</td>
