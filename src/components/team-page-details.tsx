@@ -17,7 +17,6 @@ const INITIAL_PLAYER_COUNT = 12;
 const PLAYER_PAGE_SIZE = 12;
 const INITIAL_GAME_COUNT = 10;
 const GAME_PAGE_SIZE = 10;
-const SEASON_TYPE_ORDER = ["preseason", "regular", "play_in", "playoffs"];
 const SEASON_TYPE_LABELS: Record<string, string> = {
   preseason: "Preseason",
   regular: "Regular Season",
@@ -25,7 +24,7 @@ const SEASON_TYPE_LABELS: Record<string, string> = {
   playoffs: "Playoffs",
 };
 
-type GameFilter = "all" | TeamGameSeasonType;
+type GameFilter = "all" | "regular" | "playoffs" | "other";
 type SeasonTypeOption = SeasonTypeSelectorOption<GameFilter>;
 type PlayerTableRow = {
   playerId: number;
@@ -155,22 +154,28 @@ function formatLeaderLabel(leader?: { name: string; value: number }) {
 }
 
 function getSeasonTypeCounts(games: TeamGame[]) {
-  return games.reduce<Map<string, number>>((counts, game) => {
-    counts.set(game.seasonType, (counts.get(game.seasonType) ?? 0) + 1);
-    return counts;
-  }, new Map());
+  return games.reduce(
+    (counts, game) => {
+      if (game.seasonType === "regular") {
+        counts.regular += 1;
+      } else if (game.seasonType === "playoffs") {
+        counts.playoffs += 1;
+      } else {
+        counts.other += 1;
+      }
+
+      return counts;
+    },
+    {
+      regular: 0,
+      playoffs: 0,
+      other: 0,
+    },
+  );
 }
 
-function getSeasonTypeOptions(games: TeamGame[]) {
+function getSeasonTypeOptions(games: TeamGame[]): SeasonTypeOption[] {
   const counts = getSeasonTypeCounts(games);
-  const orderedTypes = [
-    ...SEASON_TYPE_ORDER.filter((seasonType) => counts.has(seasonType)),
-    ...[...counts.keys()]
-      .filter((seasonType) => !SEASON_TYPE_ORDER.includes(seasonType))
-      .sort((left, right) =>
-        formatSeasonTypeLabel(left).localeCompare(formatSeasonTypeLabel(right)),
-      ),
-  ];
 
   return [
     {
@@ -178,12 +183,34 @@ function getSeasonTypeOptions(games: TeamGame[]) {
       label: "All",
       count: games.length,
     },
-    ...orderedTypes.map((seasonType) => ({
-      value: seasonType,
-      label: formatSeasonTypeLabel(seasonType),
-      count: counts.get(seasonType) ?? 0,
-    })),
+    {
+      value: "regular",
+      label: "Regular Season",
+      count: counts.regular,
+    },
+    {
+      value: "playoffs",
+      label: "Playoffs",
+      count: counts.playoffs,
+    },
+    {
+      value: "other",
+      label: "Other",
+      count: counts.other,
+    },
   ];
+}
+
+function isGameInFilter(game: TeamGame, filter: GameFilter) {
+  if (filter === "all") {
+    return true;
+  }
+
+  if (filter === "other") {
+    return game.seasonType !== "regular" && game.seasonType !== "playoffs";
+  }
+
+  return game.seasonType === filter;
 }
 
 function getPlayerAverageBox(player: TeamPlayerSeason) {
@@ -336,6 +363,12 @@ function getPlayerRowsForFilter(
     return sortPlayerRows(rows);
   }
 
+  if (filter === "other") {
+    return sortPlayerRows(
+      getRowsFromGameBoxes(games.filter((game) => isGameInFilter(game, filter))),
+    );
+  }
+
   const splitRows = players
     .map((player) => getPlayerSeasonTypeRow(player, filter))
     .filter((player): player is PlayerTableRow => Boolean(player));
@@ -345,7 +378,7 @@ function getPlayerRowsForFilter(
   }
 
   return sortPlayerRows(
-    getRowsFromGameBoxes(games.filter((game) => game.seasonType === filter)),
+    getRowsFromGameBoxes(games.filter((game) => isGameInFilter(game, filter))),
   );
 }
 
@@ -395,7 +428,7 @@ export function TeamPageDetails({
   const filteredGames =
     selectedGameFilter === "all"
       ? games
-      : games.filter((game) => game.seasonType === selectedGameFilter);
+      : games.filter((game) => isGameInFilter(game, selectedGameFilter));
   const displayedGames = filteredGames.slice(0, visibleGames);
   const hasMorePlayers = visiblePlayers < filteredPlayers.length;
   const hasMoreGames = visibleGames < filteredGames.length;
