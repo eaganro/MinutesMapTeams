@@ -39,9 +39,6 @@ export function SeasonTypeSelector<TValue extends string>({
             aria-pressed={isSelected}
           >
             {option.label}
-            <span className="ml-2 text-current opacity-70">
-              {option.count}
-            </span>
           </button>
         );
       })}

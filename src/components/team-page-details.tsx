@@ -13,8 +13,6 @@ import {
   type SeasonTypeSelectorOption,
 } from "@/components/season-type-selector";
 
-const INITIAL_PLAYER_COUNT = 12;
-const PLAYER_PAGE_SIZE = 12;
 const INITIAL_GAME_COUNT = 10;
 const GAME_PAGE_SIZE = 10;
 const SEASON_TYPE_LABELS: Record<string, string> = {
@@ -402,9 +400,6 @@ export function TeamPageDetails({
   games,
   players,
 }: TeamPageDetailsProps) {
-  const [visiblePlayers, setVisiblePlayers] = useState(
-    Math.min(INITIAL_PLAYER_COUNT, players.length),
-  );
   const [visibleGames, setVisibleGames] = useState(
     Math.min(INITIAL_GAME_COUNT, games.length),
   );
@@ -424,18 +419,15 @@ export function TeamPageDetails({
     games,
     selectedPlayerFilter,
   );
-  const displayedPlayers = filteredPlayers.slice(0, visiblePlayers);
   const filteredGames =
     selectedGameFilter === "all"
       ? games
       : games.filter((game) => isGameInFilter(game, selectedGameFilter));
   const displayedGames = filteredGames.slice(0, visibleGames);
-  const hasMorePlayers = visiblePlayers < filteredPlayers.length;
   const hasMoreGames = visibleGames < filteredGames.length;
 
   function selectPlayerFilter(option: SeasonTypeOption) {
     setSelectedPlayerFilter(option.value);
-    setVisiblePlayers(Math.min(INITIAL_PLAYER_COUNT, option.count));
   }
 
   function selectGameFilter(nextFilter: GameFilter, nextCount: number) {
@@ -445,7 +437,7 @@ export function TeamPageDetails({
 
   return (
     <section className="grid gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-      <article className="rounded-[20px] bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)]">
+      <article className="flex max-h-[760px] flex-col rounded-[20px] bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)]">
         <div className="flex flex-col gap-4">
           <h2 className="text-2xl font-semibold tracking-[-0.02em] text-heading">
             Full roster output
@@ -458,89 +450,80 @@ export function TeamPageDetails({
               onSelect={selectPlayerFilter}
             />
             <p className="text-sm text-muted">
-              {displayedPlayers.length} of {filteredPlayers.length}
+              {filteredPlayers.length} players
             </p>
           </div>
         </div>
 
-        <div className="mt-6 overflow-x-auto">
-          <table className="min-w-full border-separate border-spacing-y-2 text-left text-sm">
-            <thead>
-              <tr className="text-muted">
-                <th className="px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em]">
-                  Player
-                </th>
-                <th className="px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em]">
-                  GP
-                </th>
-                <th className="px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em]">
-                  MIN
-                </th>
-                <th className="px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em]">
-                  PTS
-                </th>
-                <th className="px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em]">
-                  REB
-                </th>
-                <th className="px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em]">
-                  AST
-                </th>
-                <th className="px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em]">
-                  +/-
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {displayedPlayers.map((player) => (
-                <tr
-                  key={player.playerId}
-                  className="rounded-[16px] bg-card-alt text-copy"
-                >
-                  <td className="rounded-l-[16px] px-3 py-3 font-medium text-foreground">
-                    <Link
-                      href={`/players/${player.playerId}`}
-                      className="transition-colors hover:text-accent-strong"
-                    >
-                      {player.name}
-                    </Link>
-                  </td>
-                  <td className="px-3 py-3">{player.games}</td>
-                  <td className="px-3 py-3">{player.averages.min}</td>
-                  <td className="px-3 py-3">{player.averages.pts.toFixed(1)}</td>
-                  <td className="px-3 py-3">{player.averages.reb.toFixed(1)}</td>
-                  <td className="px-3 py-3">{player.averages.ast.toFixed(1)}</td>
-                  <td className="rounded-r-[16px] px-3 py-3">
-                    {player.averages.pm !== undefined
-                      ? formatSignedNumber(Number(player.averages.pm.toFixed(1)))
-                      : "—"}
-                  </td>
+        <div className="mt-6 min-h-0 flex-1 overflow-y-auto pr-1">
+          <div className="overflow-x-auto">
+            <table className="min-w-full border-separate border-spacing-y-2 text-left text-sm">
+              <thead>
+                <tr className="text-muted">
+                  <th className="px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em]">
+                    Player
+                  </th>
+                  <th className="px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em]">
+                    GP
+                  </th>
+                  <th className="px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em]">
+                    MIN
+                  </th>
+                  <th className="px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em]">
+                    PTS
+                  </th>
+                  <th className="px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em]">
+                    REB
+                  </th>
+                  <th className="px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em]">
+                    AST
+                  </th>
+                  <th className="px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em]">
+                    +/-
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {hasMorePlayers ? (
-          <div className="mt-5 flex justify-center">
-            <button
-              type="button"
-              onClick={() =>
-                setVisiblePlayers((currentValue) =>
-                  Math.min(
-                    currentValue + PLAYER_PAGE_SIZE,
-                    filteredPlayers.length,
-                  ),
-                )
-              }
-              className="rounded-full border border-border-strong bg-card-alt px-5 py-2 text-sm text-copy transition-colors hover:bg-hover hover:text-foreground"
-            >
-              Show More Players
-            </button>
+              </thead>
+              <tbody>
+                {filteredPlayers.map((player) => (
+                  <tr
+                    key={player.playerId}
+                    className="rounded-[16px] bg-card-alt text-copy"
+                  >
+                    <td className="rounded-l-[16px] px-3 py-3 font-medium text-foreground">
+                      <Link
+                        href={`/players/${player.playerId}`}
+                        className="transition-colors hover:text-accent-strong"
+                      >
+                        {player.name}
+                      </Link>
+                    </td>
+                    <td className="px-3 py-3">{player.games}</td>
+                    <td className="px-3 py-3">{player.averages.min}</td>
+                    <td className="px-3 py-3">
+                      {player.averages.pts.toFixed(1)}
+                    </td>
+                    <td className="px-3 py-3">
+                      {player.averages.reb.toFixed(1)}
+                    </td>
+                    <td className="px-3 py-3">
+                      {player.averages.ast.toFixed(1)}
+                    </td>
+                    <td className="rounded-r-[16px] px-3 py-3">
+                      {player.averages.pm !== undefined
+                        ? formatSignedNumber(
+                            Number(player.averages.pm.toFixed(1)),
+                          )
+                        : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        ) : null}
+        </div>
       </article>
 
-      <article className="rounded-[20px] bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)]">
+      <article className="flex max-h-[760px] flex-col rounded-[20px] bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)]">
         <div className="flex flex-col gap-4">
           <h2 className="text-2xl font-semibold tracking-[-0.02em] text-heading">
             Game results
@@ -560,7 +543,7 @@ export function TeamPageDetails({
           </div>
         </div>
 
-        <div className="mt-6 space-y-3">
+        <div className="mt-6 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
           {displayedGames.map((game) => (
             <div
               key={game.gameId}
@@ -616,23 +599,26 @@ export function TeamPageDetails({
               </div>
             </div>
           ))}
-        </div>
 
-        {hasMoreGames ? (
-          <div className="mt-5 flex justify-center">
-            <button
-              type="button"
-              onClick={() =>
-                setVisibleGames((currentValue) =>
-                  Math.min(currentValue + GAME_PAGE_SIZE, filteredGames.length),
-                )
-              }
-              className="rounded-full border border-border-strong bg-card-alt px-5 py-2 text-sm text-copy transition-colors hover:bg-hover hover:text-foreground"
-            >
-              Show More Games
-            </button>
-          </div>
-        ) : null}
+          {hasMoreGames ? (
+            <div className="mt-5 flex justify-center">
+              <button
+                type="button"
+                onClick={() =>
+                  setVisibleGames((currentValue) =>
+                    Math.min(
+                      currentValue + GAME_PAGE_SIZE,
+                      filteredGames.length,
+                    ),
+                  )
+                }
+                className="rounded-full border border-border-strong bg-card-alt px-5 py-2 text-sm text-copy transition-colors hover:bg-hover hover:text-foreground"
+              >
+                Show More Games
+              </button>
+            </div>
+          ) : null}
+        </div>
       </article>
     </section>
   );
