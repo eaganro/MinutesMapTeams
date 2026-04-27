@@ -188,29 +188,52 @@ function getSeasonTypeCounts(games: TeamGame[]) {
 
 function getSeasonTypeOptions(games: TeamGame[]): SeasonTypeOption[] {
   const counts = getSeasonTypeCounts(games);
-
-  return [
+  const options: SeasonTypeOption[] = [
     {
       value: "all" as const,
       label: "All",
       count: games.length,
     },
-    {
+  ];
+
+  if (counts.regular > 0) {
+    options.push({
       value: "regular",
       label: "Regular Season",
       count: counts.regular,
-    },
-    {
+    });
+  }
+
+  if (counts.playoffs > 0) {
+    options.push({
       value: "playoffs",
       label: "Playoffs",
       count: counts.playoffs,
-    },
-    {
+    });
+  }
+
+  if (counts.other > 0) {
+    options.push({
       value: "other",
       label: "Other",
       count: counts.other,
-    },
-  ];
+    });
+  }
+
+  return options;
+}
+
+function getPlayerSeasonTypeOptions(
+  players: TeamPlayerSeason[],
+  games: TeamGame[],
+  seasonTypeOptions: SeasonTypeOption[],
+) {
+  return seasonTypeOptions
+    .map((option) => ({
+      ...option,
+      count: getPlayerRowsForFilter(players, games, option.value).length,
+    }))
+    .filter((option) => option.value === "all" || option.count > 0);
 }
 
 function isGameInFilter(game: TeamGame, filter: GameFilter) {
@@ -442,17 +465,6 @@ function getPlayerRowsForFilter(
   return sortPlayerRows(
     getRowsFromGameBoxes(games.filter((game) => isGameInFilter(game, filter))),
   );
-}
-
-function getPlayerSeasonTypeOptions(
-  players: TeamPlayerSeason[],
-  games: TeamGame[],
-  seasonTypeOptions: SeasonTypeOption[],
-) {
-  return seasonTypeOptions.map((option) => ({
-    ...option,
-    count: getPlayerRowsForFilter(players, games, option.value).length,
-  }));
 }
 
 type TeamPageDetailsProps = {

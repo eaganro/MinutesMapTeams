@@ -1,12 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { TeamGameSeasonType } from "@/lib/team-data";
-import type {
-  PlayerGame,
-  PlayerPageData,
-  PlayerSeasonSplit,
-} from "@/lib/player-data";
+import type { PlayerGame, PlayerPageData } from "@/lib/player-data";
 import {
   SeasonTypeSelector,
   type SeasonTypeSelectorOption,
@@ -14,7 +9,6 @@ import {
 
 const INITIAL_GAME_COUNT = 10;
 const GAME_PAGE_SIZE = 10;
-const SEASON_TYPE_ORDER = ["preseason", "regular", "play_in", "playoffs"];
 const SEASON_TYPE_LABELS: Record<string, string> = {
   preseason: "Preseason",
   regular: "Regular Season",
@@ -22,14 +16,10 @@ const SEASON_TYPE_LABELS: Record<string, string> = {
   playoffs: "Playoffs",
 };
 
-type PlayerFilter = "all" | TeamGameSeasonType;
+type PlayerFilter = "all" | "regular" | "playoffs" | "other";
 
 function formatSignedNumber(value: number) {
   return value > 0 ? `+${value}` : `${value}`;
-}
-
-function formatSeasonRecord(wins: number, losses: number, ties = 0) {
-  return ties > 0 ? `${wins}-${losses}-${ties}` : `${wins}-${losses}`;
 }
 
 function formatOpponentLabel(homeAway: "home" | "away", opponentAbbr: string) {
@@ -55,100 +45,80 @@ function formatSeasonTypeLabel(seasonType: string) {
   );
 }
 
-function getSeasonTypeOptions(playerPage: PlayerPageData) {
-  const splitKeys = new Set(Object.keys(playerPage.bySeasonType ?? {}));
-  const gameCounts = playerPage.games.reduce<Map<string, number>>(
+function getSeasonTypeCounts(games: PlayerGame[]) {
+  return games.reduce(
     (counts, game) => {
-      counts.set(game.seasonType, (counts.get(game.seasonType) ?? 0) + 1);
+      if (game.seasonType === "regular") {
+        counts.regular += 1;
+      } else if (game.seasonType === "playoffs") {
+        counts.playoffs += 1;
+      } else {
+        counts.other += 1;
+      }
+
       return counts;
     },
-    new Map(),
+    {
+      regular: 0,
+      playoffs: 0,
+      other: 0,
+    },
   );
+}
 
-  const orderedTypes = [
-    ...SEASON_TYPE_ORDER.filter(
-      (seasonType) => splitKeys.has(seasonType) || gameCounts.has(seasonType),
-    ),
-    ...[...new Set([...splitKeys, ...gameCounts.keys()])]
-      .filter((seasonType) => !SEASON_TYPE_ORDER.includes(seasonType))
-      .sort((left, right) =>
-        formatSeasonTypeLabel(left).localeCompare(formatSeasonTypeLabel(right)),
-      ),
-  ];
-
-  return [
+function getSeasonTypeOptions(playerPage: PlayerPageData) {
+  const counts = getSeasonTypeCounts(playerPage.games);
+  const options: Array<SeasonTypeSelectorOption<PlayerFilter>> = [
     {
       value: "all" as const,
       label: "All",
-      count: playerPage.totals.games,
+      count: playerPage.games.length,
     },
-    ...orderedTypes.map((seasonType) => ({
-      value: seasonType,
-      label: formatSeasonTypeLabel(seasonType),
-      count:
-        playerPage.bySeasonType?.[seasonType]?.games ??
-        gameCounts.get(seasonType) ??
-        0,
-    })),
   ];
+
+  if (counts.regular > 0) {
+    options.push({
+      value: "regular",
+      label: "Regular Season",
+      count: counts.regular,
+    });
+  }
+
+  if (counts.playoffs > 0) {
+    options.push({
+      value: "playoffs",
+      label: "Playoffs",
+      count: counts.playoffs,
+    });
+  }
+
+  if (counts.other > 0) {
+    options.push({
+      value: "other",
+      label: "Other",
+      count: counts.other,
+    });
+  }
+
+  return options;
 }
 
-function getSplitView(playerPage: PlayerPageData, filter: PlayerFilter) {
+function isGameInFilter(game: PlayerGame, filter: PlayerFilter) {
   if (filter === "all") {
-    return {
-      games: playerPage.totals.games,
-      wins: playerPage.totals.wins,
-      losses: playerPage.totals.losses,
-      ties: playerPage.totals.ties,
-      averages: playerPage.averages.box,
-      totals: playerPage.totals.box,
-    };
+    return true;
   }
 
-  const split = playerPage.bySeasonType?.[filter] as
-    | PlayerSeasonSplit
-    | undefined;
-
-  if (!split) {
-    return null;
+  if (filter === "other") {
+    return game.seasonType !== "regular" && game.seasonType !== "playoffs";
   }
 
-  return {
-    games: split.totals.games,
-    wins: split.totals.wins,
-    losses: split.totals.losses,
-    ties: split.totals.ties,
-    averages: split.averages.box,
-    totals: split.totals.box,
-  };
+  return game.seasonType === filter;
 }
 
 function getGamesForFilter(games: PlayerGame[], filter: PlayerFilter) {
-  const filteredGames =
-    filter === "all"
-      ? games
-      : games.filter((game) => game.seasonType === filter);
+  const filteredGames = games.filter((game) => isGameInFilter(game, filter));
 
   return [...filteredGames].reverse();
-}
-
-function StatCard({
-  label,
-  value,
-}: {
-  label: string;
-  value: string | number;
-}) {
-  return (
-    <div className="rounded-[18px] bg-card-alt p-4">
-      <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted">
-        {label}
-      </p>
-      <p className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-heading">
-        {value}
-      </p>
-    </div>
-  );
 }
 
 type PlayerPageDetailsProps = {
@@ -162,7 +132,6 @@ export function PlayerPageDetails({ playerPage }: PlayerPageDetailsProps) {
   );
 
   const options = getSeasonTypeOptions(playerPage);
-  const splitView = getSplitView(playerPage, selectedFilter);
   const filteredGames = getGamesForFilter(playerPage.games, selectedFilter);
   const displayedGames = filteredGames.slice(0, visibleGames);
   const hasMoreGames = visibleGames < filteredGames.length;
@@ -172,127 +141,27 @@ export function PlayerPageDetails({ playerPage }: PlayerPageDetailsProps) {
     setVisibleGames(Math.min(INITIAL_GAME_COUNT, option.count));
   }
 
-  if (!splitView) {
-    return null;
-  }
-
   return (
-    <section className="grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-      <article className="rounded-[20px] bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)]">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-          <div>
-            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-muted">
-              Player Splits
+    <section>
+      <article className="flex max-h-[760px] flex-col rounded-[20px] bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)]">
+        <div className="flex flex-col gap-4">
+          <h2 className="text-2xl font-semibold tracking-[-0.02em] text-heading">
+            Player games
+          </h2>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <SeasonTypeSelector
+              ariaLabel="Filter player games by season type"
+              options={options}
+              selectedValue={selectedFilter}
+              onSelect={selectFilter}
+            />
+            <p className="text-sm text-muted">
+              {displayedGames.length} of {filteredGames.length}
             </p>
-            <h2 className="mt-3 text-2xl font-semibold tracking-[-0.02em] text-heading">
-              Per-game production
-            </h2>
           </div>
-          <SeasonTypeSelector
-            ariaLabel="Filter player stats by season type"
-            options={options}
-            selectedValue={selectedFilter}
-            onSelect={selectFilter}
-          />
         </div>
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-2">
-          <StatCard label="Games" value={splitView.games} />
-          <StatCard
-            label="Record"
-            value={formatSeasonRecord(
-              splitView.wins,
-              splitView.losses,
-              splitView.ties,
-            )}
-          />
-          <StatCard label="PTS" value={splitView.averages.pts.toFixed(1)} />
-          <StatCard label="REB" value={splitView.averages.reb.toFixed(1)} />
-          <StatCard label="AST" value={splitView.averages.ast.toFixed(1)} />
-          <StatCard
-            label="+/-"
-            value={
-              splitView.averages.pm !== undefined
-                ? formatSignedNumber(Number(splitView.averages.pm.toFixed(1)))
-                : "-"
-            }
-          />
-        </div>
-
-        <div className="mt-6 overflow-x-auto">
-          <table className="min-w-full border-separate border-spacing-y-2 text-left text-sm">
-            <thead>
-              <tr className="text-muted">
-                {["MIN", "FG", "3P", "FT", "STL", "BLK", "TO", "PF"].map(
-                  (label) => (
-                    <th
-                      key={label}
-                      className="px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em]"
-                    >
-                      {label}
-                    </th>
-                  ),
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="rounded-[16px] bg-card-alt text-copy">
-                <td className="rounded-l-[16px] px-3 py-3">
-                  {splitView.averages.min}
-                </td>
-                <td className="px-3 py-3">
-                  {splitView.averages.fgm.toFixed(1)}-
-                  {splitView.averages.fga.toFixed(1)}
-                </td>
-                <td className="px-3 py-3">
-                  {splitView.averages.tpm.toFixed(1)}-
-                  {splitView.averages.tpa.toFixed(1)}
-                </td>
-                <td className="px-3 py-3">
-                  {splitView.averages.ftm.toFixed(1)}-
-                  {splitView.averages.fta.toFixed(1)}
-                </td>
-                <td className="px-3 py-3">
-                  {splitView.averages.stl.toFixed(1)}
-                </td>
-                <td className="px-3 py-3">
-                  {splitView.averages.blk.toFixed(1)}
-                </td>
-                <td className="px-3 py-3">
-                  {splitView.averages.to.toFixed(1)}
-                </td>
-                <td className="rounded-r-[16px] px-3 py-3">
-                  {splitView.averages.pf.toFixed(1)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div className="mt-5 grid gap-2 text-sm text-copy sm:grid-cols-2">
-          <p>Total points: {splitView.totals.pts}</p>
-          <p>Total rebounds: {splitView.totals.reb}</p>
-          <p>Total assists: {splitView.totals.ast}</p>
-          <p>Total minutes: {splitView.totals.min}</p>
-        </div>
-      </article>
-
-      <article className="rounded-[20px] bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)]">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-muted">
-              Game Log
-            </p>
-            <h2 className="mt-3 text-2xl font-semibold tracking-[-0.02em] text-heading">
-              Player games
-            </h2>
-          </div>
-          <p className="text-sm text-muted">
-            {displayedGames.length} of {filteredGames.length}
-          </p>
-        </div>
-
-        <div className="mt-6 space-y-3">
+        <div className="mt-6 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
           {displayedGames.map((game) => (
             <div
               key={game.gameId}
@@ -314,7 +183,8 @@ export function PlayerPageDetails({ playerPage }: PlayerPageDetailsProps) {
                       {formatSeasonTypeLabel(game.seasonType)}
                     </span>
                     <span className="font-medium text-foreground">
-                      {game.teamAbbr} {formatOpponentLabel(game.homeAway, game.opponentAbbr)}
+                      {game.teamAbbr}{" "}
+                      {formatOpponentLabel(game.homeAway, game.opponentAbbr)}
                     </span>
                   </div>
                   <p className="mt-2 text-copy">{formatGameDate(game.date)}</p>
@@ -358,23 +228,26 @@ export function PlayerPageDetails({ playerPage }: PlayerPageDetailsProps) {
               </div>
             </div>
           ))}
-        </div>
 
-        {hasMoreGames ? (
-          <div className="mt-5 flex justify-center">
-            <button
-              type="button"
-              onClick={() =>
-                setVisibleGames((currentValue) =>
-                  Math.min(currentValue + GAME_PAGE_SIZE, filteredGames.length),
-                )
-              }
-              className="rounded-full border border-border-strong bg-card-alt px-5 py-2 text-sm text-copy transition-colors hover:bg-hover hover:text-foreground"
-            >
-              Show More Games
-            </button>
-          </div>
-        ) : null}
+          {hasMoreGames ? (
+            <div className="mt-5 flex justify-center">
+              <button
+                type="button"
+                onClick={() =>
+                  setVisibleGames((currentValue) =>
+                    Math.min(
+                      currentValue + GAME_PAGE_SIZE,
+                      filteredGames.length,
+                    ),
+                  )
+                }
+                className="rounded-full border border-border-strong bg-card-alt px-5 py-2 text-sm text-copy transition-colors hover:bg-hover hover:text-foreground"
+              >
+                Show More Games
+              </button>
+            </div>
+          ) : null}
+        </div>
       </article>
     </section>
   );
