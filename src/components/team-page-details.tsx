@@ -541,16 +541,11 @@ export function TeamPageDetails({
       </article>
 
       <article className="rounded-[20px] bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)]">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-          <div>
-            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-muted">
-              Game Log
-            </p>
-            <h2 className="mt-3 text-2xl font-semibold tracking-[-0.02em] text-heading">
-              Game results
-            </h2>
-          </div>
-          <div className="flex flex-col gap-3 sm:items-end">
+        <div className="flex flex-col gap-4">
+          <h2 className="text-2xl font-semibold tracking-[-0.02em] text-heading">
+            Game results
+          </h2>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <SeasonTypeSelector
               ariaLabel="Filter games by season type"
               options={seasonTypeOptions}
