@@ -31,6 +31,8 @@ type PlayerTableRow = {
   averages: StatLine;
   totalSeconds: number;
 };
+type PlayerSortKey = "name" | "games" | "min" | "pts" | "reb" | "ast" | "pm";
+type SortDirection = "asc" | "desc";
 type StatNumberKey =
   | "pts"
   | "fgm"
@@ -66,6 +68,18 @@ const STAT_NUMBER_KEYS: StatNumberKey[] = [
   "to",
   "pf",
   "pm",
+];
+const PLAYER_SORT_COLUMNS: Array<{
+  key: PlayerSortKey;
+  label: string;
+}> = [
+  { key: "name", label: "Player" },
+  { key: "games", label: "GP" },
+  { key: "min", label: "MIN" },
+  { key: "pts", label: "PTS" },
+  { key: "reb", label: "REB" },
+  { key: "ast", label: "AST" },
+  { key: "pm", label: "+/-" },
 ];
 
 function formatSignedNumber(value: number) {
@@ -348,6 +362,56 @@ function sortPlayerRows(rows: PlayerTableRow[]) {
   );
 }
 
+function getPlayerSortValue(player: PlayerTableRow, sortKey: PlayerSortKey) {
+  if (sortKey === "name") {
+    return player.name;
+  }
+
+  if (sortKey === "games") {
+    return player.games;
+  }
+
+  if (sortKey === "min") {
+    return parseMinutesToSeconds(player.averages.min);
+  }
+
+  return player.averages[sortKey] ?? 0;
+}
+
+function sortPlayerRowsByColumn(
+  rows: PlayerTableRow[],
+  sortKey: PlayerSortKey,
+  sortDirection: SortDirection,
+) {
+  return [...rows].sort((left, right) => {
+    const leftValue = getPlayerSortValue(left, sortKey);
+    const rightValue = getPlayerSortValue(right, sortKey);
+
+    const comparison =
+      typeof leftValue === "string" && typeof rightValue === "string"
+        ? leftValue.localeCompare(rightValue)
+        : Number(leftValue) - Number(rightValue);
+
+    if (comparison === 0) {
+      return right.totalSeconds - left.totalSeconds;
+    }
+
+    return sortDirection === "asc" ? comparison : -comparison;
+  });
+}
+
+function getNextSortDirection(
+  currentKey: PlayerSortKey,
+  nextKey: PlayerSortKey,
+  currentDirection: SortDirection,
+) {
+  if (currentKey === nextKey) {
+    return currentDirection === "asc" ? "desc" : "asc";
+  }
+
+  return nextKey === "name" ? "asc" : "desc";
+}
+
 function getPlayerRowsForFilter(
   players: TeamPlayerSeason[],
   games: TeamGame[],
@@ -407,6 +471,9 @@ export function TeamPageDetails({
     useState<GameFilter>("all");
   const [selectedGameFilter, setSelectedGameFilter] =
     useState<GameFilter>("all");
+  const [playerSortKey, setPlayerSortKey] = useState<PlayerSortKey>("min");
+  const [playerSortDirection, setPlayerSortDirection] =
+    useState<SortDirection>("desc");
 
   const seasonTypeOptions = getSeasonTypeOptions(games);
   const playerSeasonTypeOptions = getPlayerSeasonTypeOptions(
@@ -419,6 +486,11 @@ export function TeamPageDetails({
     games,
     selectedPlayerFilter,
   );
+  const sortedPlayers = sortPlayerRowsByColumn(
+    filteredPlayers,
+    playerSortKey,
+    playerSortDirection,
+  );
   const filteredGames =
     selectedGameFilter === "all"
       ? games
@@ -428,6 +500,13 @@ export function TeamPageDetails({
 
   function selectPlayerFilter(option: SeasonTypeOption) {
     setSelectedPlayerFilter(option.value);
+  }
+
+  function selectPlayerSort(nextSortKey: PlayerSortKey) {
+    setPlayerSortDirection((currentDirection) =>
+      getNextSortDirection(playerSortKey, nextSortKey, currentDirection),
+    );
+    setPlayerSortKey(nextSortKey);
   }
 
   function selectGameFilter(nextFilter: GameFilter, nextCount: number) {
@@ -460,31 +539,43 @@ export function TeamPageDetails({
             <table className="min-w-full border-separate border-spacing-y-2 text-left text-sm">
               <thead>
                 <tr className="text-muted">
-                  <th className="px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em]">
-                    Player
-                  </th>
-                  <th className="px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em]">
-                    GP
-                  </th>
-                  <th className="px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em]">
-                    MIN
-                  </th>
-                  <th className="px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em]">
-                    PTS
-                  </th>
-                  <th className="px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em]">
-                    REB
-                  </th>
-                  <th className="px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em]">
-                    AST
-                  </th>
-                  <th className="px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em]">
-                    +/-
-                  </th>
+                  {PLAYER_SORT_COLUMNS.map((column) => {
+                    const isSelected = playerSortKey === column.key;
+
+                    return (
+                      <th
+                        key={column.key}
+                        className="px-3 py-2 font-mono text-[11px] uppercase tracking-[0.18em]"
+                        aria-sort={
+                          isSelected
+                            ? playerSortDirection === "asc"
+                              ? "ascending"
+                              : "descending"
+                            : "none"
+                        }
+                      >
+                        <button
+                          type="button"
+                          className="flex w-full cursor-pointer items-center gap-1 rounded border-0 bg-transparent px-0 py-2 text-left text-inherit transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                          onClick={() => selectPlayerSort(column.key)}
+                        >
+                          {column.label}
+                          {isSelected ? (
+                            <span
+                              className="text-[10px] leading-none"
+                              aria-hidden="true"
+                            >
+                              {playerSortDirection === "asc" ? "^" : "v"}
+                            </span>
+                          ) : null}
+                        </button>
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
-                {filteredPlayers.map((player) => (
+                {sortedPlayers.map((player) => (
                   <tr
                     key={player.playerId}
                     className="rounded-[16px] bg-card-alt text-copy"
