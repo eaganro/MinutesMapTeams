@@ -120,6 +120,40 @@ function formatSeasonTypeLabel(seasonType: string) {
   );
 }
 
+function isCompletedGame(game: TeamGame) {
+  return game.played !== false && game.result !== null;
+}
+
+function getResultBadgeClass(game: TeamGame) {
+  if (!isCompletedGame(game)) {
+    return "bg-card text-muted";
+  }
+
+  if (game.result === "W") {
+    return "bg-[#dff3e4] text-[#166534] dark:bg-[#193126] dark:text-[#86efac]";
+  }
+
+  if (game.result === "T") {
+    return "bg-card text-muted";
+  }
+
+  return "bg-[#f7e0e0] text-[#991b1b] dark:bg-[#341c1c] dark:text-[#fca5a5]";
+}
+
+function getResultBadgeLabel(game: TeamGame) {
+  return isCompletedGame(game) ? (game.result ?? "Scheduled") : "Scheduled";
+}
+
+function getGameScoreLabel(game: TeamGame) {
+  return isCompletedGame(game)
+    ? `${game.teamScore} - ${game.oppScore}`
+    : (game.status ?? "Scheduled");
+}
+
+function formatLeaderLabel(leader?: { name: string; value: number }) {
+  return leader ? `${leader.name} (${leader.value})` : "—";
+}
+
 function getSeasonTypeCounts(games: TeamGame[]) {
   return games.reduce<Map<string, number>>((counts, game) => {
     counts.set(game.seasonType, (counts.get(game.seasonType) ?? 0) + 1);
@@ -511,15 +545,11 @@ export function TeamPageDetails({
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     <span
-                      className={`rounded-full px-3 py-1 font-mono text-[11px] uppercase tracking-[0.18em] ${
-                        game.result === "W"
-                          ? "bg-[#dff3e4] text-[#166534] dark:bg-[#193126] dark:text-[#86efac]"
-                          : "bg-[#f7e0e0] text-[#991b1b] dark:bg-[#341c1c] dark:text-[#fca5a5]"
-                      }`}
+                      className={`rounded-full px-3 py-1 font-mono text-[11px] uppercase tracking-[0.18em] ${getResultBadgeClass(game)}`}
                     >
-                      {game.result}
+                      {getResultBadgeLabel(game)}
                     </span>
                     <span className="rounded-full bg-card px-3 py-1 font-mono text-[11px] uppercase tracking-[0.18em] text-muted">
                       {formatSeasonTypeLabel(game.seasonType)}
@@ -533,9 +563,11 @@ export function TeamPageDetails({
 
                 <div className="text-right">
                   <p className="text-lg font-semibold tracking-[-0.02em] text-heading">
-                    {game.teamScore} - {game.oppScore}
+                    {getGameScoreLabel(game)}
                   </p>
-                  <p className="mt-1 text-muted">{game.opponentName}</p>
+                  <p className="mt-1 text-muted">
+                    {game.opponentName || game.opponentAbbr}
+                  </p>
                 </div>
               </div>
 
@@ -543,19 +575,19 @@ export function TeamPageDetails({
                 <p>
                   PTS:{" "}
                   <span className="font-medium text-copy">
-                    {game.leaders.pts.name} ({game.leaders.pts.value})
+                    {formatLeaderLabel(game.leaders.pts)}
                   </span>
                 </p>
                 <p>
                   REB:{" "}
                   <span className="font-medium text-copy">
-                    {game.leaders.reb.name} ({game.leaders.reb.value})
+                    {formatLeaderLabel(game.leaders.reb)}
                   </span>
                 </p>
                 <p>
                   AST:{" "}
                   <span className="font-medium text-copy">
-                    {game.leaders.ast.name} ({game.leaders.ast.value})
+                    {formatLeaderLabel(game.leaders.ast)}
                   </span>
                 </p>
               </div>

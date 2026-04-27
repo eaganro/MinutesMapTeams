@@ -113,27 +113,26 @@ export type TeamGame = {
   opponentId: number;
   opponentAbbr: string;
   opponentName: string;
-  result: "W" | "L" | "T";
+  status?: string;
+  played?: boolean;
+  result: "W" | "L" | "T" | null;
   teamScore: number;
   oppScore: number;
-  teamStats: StatLine;
-  leaders: {
-    pts: Leader;
-    reb: Leader;
-    ast: Leader;
-  };
+  teamStats: Partial<StatLine>;
+  leaders: Partial<Record<"pts" | "reb" | "ast", Leader>>;
   players: Array<{
     playerId: number;
     name: string;
     box: StatLine;
   }>;
   playerCount: number;
-  gamepackKey: string;
+  gamepackKey: string | null;
   recordAfter: {
     wins: number;
     losses: number;
     ties: number;
   };
+  recordAfterBySeasonType?: TeamRecord | null;
 };
 
 export type TeamPlayerSeason = {
