@@ -4,22 +4,6 @@ import { CURRENT_SEASON, TEAM_ABBREVIATIONS } from "@/lib/team-data";
 export function TeamIndex() {
   return (
     <main className="mx-auto mt-2 flex w-full max-w-[1235px] flex-col gap-5 pb-10">
-      <section className="rounded-[20px] bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)] sm:p-8 lg:p-10">
-        <div className="space-y-5">
-          <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-muted">
-            Team Pages
-          </p>
-          <h1 className="max-w-4xl text-4xl font-semibold leading-tight tracking-[-0.03em] text-heading sm:text-5xl lg:text-6xl">
-            Browse every NBA team.
-          </h1>
-          <p className="max-w-3xl text-base leading-8 text-copy sm:text-lg">
-            Team routes pull from the processed S3 payloads for the{" "}
-            {CURRENT_SEASON} season. Start with any club below and the dynamic
-            route will load its full season page.
-          </p>
-        </div>
-      </section>
-
       <section className="rounded-[20px] bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)]">
         <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-muted">
           Teams
