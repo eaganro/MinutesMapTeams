@@ -1,11 +1,7 @@
 import Link from "next/link";
+import { TEAM_ABBREVIATIONS } from "@/lib/team-data";
 import { siteConfig } from "@/lib/site-config";
 import { ThemeToggle } from "@/components/theme-toggle";
-
-const navItems = [
-  { href: "/", label: "Home" },
-  { href: "/teams", label: "Teams" },
-];
 
 export function SiteHeader() {
   return (
@@ -41,15 +37,36 @@ export function SiteHeader() {
 
       <div className="flex items-center gap-2 text-sm">
         <nav className="flex items-center gap-2">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="rounded-full border border-border-strong bg-card px-4 py-2 text-copy transition-colors hover:bg-hover hover:text-foreground"
-            >
-              {item.label}
-            </Link>
-          ))}
+          <details className="group relative">
+            <summary className="flex cursor-pointer list-none items-center gap-2 rounded-full border border-border-strong bg-card px-4 py-2 text-copy transition-colors hover:bg-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus [&::-webkit-details-marker]:hidden">
+              Teams
+              <span
+                className="text-[10px] leading-none transition-transform group-open:rotate-180"
+                aria-hidden="true"
+              >
+                v
+              </span>
+            </summary>
+            <div className="absolute right-0 z-20 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-[18px] border border-border-strong bg-card p-3 shadow-[0_16px_40px_rgba(15,23,42,0.16)]">
+              <Link
+                href="/"
+                className="block rounded-[12px] px-3 py-2 font-medium text-heading transition-colors hover:bg-hover"
+              >
+                All Teams
+              </Link>
+              <div className="mt-2 grid grid-cols-3 gap-1">
+                {TEAM_ABBREVIATIONS.map((teamAbbr) => (
+                  <Link
+                    key={teamAbbr}
+                    href={`/teams/${teamAbbr}`}
+                    className="rounded-[10px] px-3 py-2 text-center font-mono text-xs font-semibold text-copy transition-colors hover:bg-hover hover:text-foreground"
+                  >
+                    {teamAbbr}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </details>
         </nav>
         <ThemeToggle />
       </div>
