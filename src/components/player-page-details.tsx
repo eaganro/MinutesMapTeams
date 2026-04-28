@@ -6,6 +6,7 @@ import {
   SeasonTypeSelector,
   type SeasonTypeSelectorOption,
 } from "@/components/season-type-selector";
+import { PlayerGameBoxscore } from "@/components/player-game-boxscore";
 import { PlayerGameTimeline } from "@/components/player-game-timeline";
 
 const INITIAL_GAME_COUNT = 10;
@@ -18,10 +19,6 @@ const SEASON_TYPE_LABELS: Record<string, string> = {
 };
 
 type PlayerFilter = "all" | "regular" | "playoffs" | "other";
-
-function formatSignedNumber(value: number) {
-  return value > 0 ? `+${value}` : `${value}`;
-}
 
 function formatOpponentLabel(homeAway: "home" | "away", opponentAbbr: string) {
   return homeAway === "home" ? `vs ${opponentAbbr}` : `@ ${opponentAbbr}`;
@@ -201,32 +198,10 @@ export function PlayerPageDetails({ playerPage }: PlayerPageDetailsProps) {
                 </div>
               </div>
 
-              <div className="mt-4 grid gap-2 text-xs text-muted sm:grid-cols-4">
-                <p>
-                  MIN:{" "}
-                  <span className="font-medium text-copy">{game.box.min}</span>
-                </p>
-                <p>
-                  FG:{" "}
-                  <span className="font-medium text-copy">
-                    {game.box.fgm}-{game.box.fga}
-                  </span>
-                </p>
-                <p>
-                  3P:{" "}
-                  <span className="font-medium text-copy">
-                    {game.box.tpm}-{game.box.tpa}
-                  </span>
-                </p>
-                <p>
-                  +/-:{" "}
-                  <span className="font-medium text-copy">
-                    {game.box.pm !== undefined
-                      ? formatSignedNumber(game.box.pm)
-                      : "-"}
-                  </span>
-                </p>
-              </div>
+              <PlayerGameBoxscore
+                playerName={playerPage.player.name}
+                box={game.box}
+              />
 
               <PlayerGameTimeline
                 actions={game.detail?.actions}
