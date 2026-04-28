@@ -505,7 +505,7 @@ export function TeamPageDetails({
     INITIAL_UPCOMING_GAME_COUNT,
   );
   const [selectedPlayerFilter, setSelectedPlayerFilter] =
-    useState<GameFilter>("all");
+    useState<GameFilter>("regular");
   const [selectedGameFilter, setSelectedGameFilter] =
     useState<GameFilter>("all");
   const [playerSortKey, setPlayerSortKey] = useState<PlayerSortKey>("min");
