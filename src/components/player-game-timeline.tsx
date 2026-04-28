@@ -11,6 +11,17 @@ const SVG_HEIGHT = 76;
 const ROW_Y = 42;
 const CHART_LEFT = 14;
 const CHART_RIGHT = 14;
+export const PLAYER_TIMELINE_STAT_COUNT = 8;
+const EVENT_TYPE_STAT_INDEX: Record<EventType, number> = {
+  point: 0,
+  miss: 1,
+  rebound: 2,
+  assist: 3,
+  turnover: 4,
+  block: 5,
+  steal: 6,
+  foul: 7,
+};
 
 type NormalizedAction = {
   period: number;
@@ -31,6 +42,8 @@ type NormalizedSegment = {
 type PlayerGameTimelineProps = {
   actions?: PlayerGameAction[];
   segments?: PlayerGameSegment[];
+  statOn?: boolean[];
+  onToggleStat?: (index: number) => void;
 };
 
 type EventType =
@@ -338,6 +351,28 @@ function getEventType(action: NormalizedAction): EventType | null {
   return null;
 }
 
+function isStatEnabled(statOn: boolean[] | undefined, index: number) {
+  return Array.isArray(statOn) ? statOn[index] !== false : true;
+}
+
+function getActionStatIndex(action: NormalizedAction) {
+  if (isFreeThrowAction(action)) {
+    const isMiss =
+      hasMissToken(action.description) || action.result.toLowerCase() === "x";
+
+    return isMiss ? EVENT_TYPE_STAT_INDEX.miss : EVENT_TYPE_STAT_INDEX.point;
+  }
+
+  const eventType = getEventType(action);
+  return eventType ? EVENT_TYPE_STAT_INDEX[eventType] : null;
+}
+
+function isActionEnabled(action: NormalizedAction, statOn?: boolean[]) {
+  const statIndex = getActionStatIndex(action);
+
+  return statIndex === null || isStatEnabled(statOn, statIndex);
+}
+
 function getEventColor(config: EventConfig) {
   return `var(${config.colorVar}, ${config.fallback})`;
 }
@@ -355,6 +390,91 @@ function getActionTitle(action: NormalizedAction, eventType: EventType | "free-t
   }`;
 }
 
+function renderMarkerShape(
+  eventType: EventType,
+  x: number,
+  y: number,
+  size: number,
+  isThree = false,
+  markerScaleOverride: number | null = null,
+) {
+  const color = getEventColor(EVENT_CONFIGS[eventType]);
+  let shape: ReactNode;
+
+  if (eventType === "point") {
+    shape = <circle cx={x} cy={y} r={size} fill={color} />;
+  } else if (eventType === "miss") {
+    const thickness = size * 0.35;
+    shape = (
+      <path
+        d={`M ${x - size} ${y - size + thickness} L ${x - thickness} ${y} L ${x - size} ${y + size - thickness} L ${x - size + thickness} ${y + size} L ${x} ${y + thickness} L ${x + size - thickness} ${y + size} L ${x + size} ${y + size - thickness} L ${x + thickness} ${y} L ${x + size} ${y - size + thickness} L ${x + size - thickness} ${y - size} L ${x} ${y - thickness} L ${x - size + thickness} ${y - size} Z`}
+        fill={color}
+      />
+    );
+  } else if (eventType === "rebound") {
+    shape = (
+      <polygon
+        points={`${x},${y - size} ${x + size},${y} ${x},${y + size} ${x - size},${y}`}
+        fill={color}
+      />
+    );
+  } else if (eventType === "assist") {
+    shape = (
+      <polygon
+        points={`${x - size * 0.6},${y - size} ${x + size},${y} ${x - size * 0.6},${y + size}`}
+        fill={color}
+      />
+    );
+  } else if (eventType === "turnover") {
+    shape = (
+      <polygon
+        points={`${x},${y + size} ${x - size},${y - size * 0.7} ${x + size},${y - size * 0.7}`}
+        fill={color}
+      />
+    );
+  } else if (eventType === "block") {
+    shape = (
+      <rect
+        x={x - size * 0.8}
+        y={y - size * 0.8}
+        width={size * 1.6}
+        height={size * 1.6}
+        fill={color}
+      />
+    );
+  } else if (eventType === "steal") {
+    shape = (
+      <polygon
+        points={`${x},${y - size} ${x - size},${y + size * 0.7} ${x + size},${y + size * 0.7}`}
+        fill={color}
+      />
+    );
+  } else {
+    const angleStep = Math.PI / 3;
+    const points = Array.from({ length: 6 }, (_, pointIndex) => {
+      const angle = angleStep * pointIndex - Math.PI / 2;
+      return `${x + Math.cos(angle) * size},${y + Math.sin(angle) * size}`;
+    }).join(" ");
+    shape = <polygon points={points} fill={color} />;
+  }
+
+  if (!isThree) {
+    return shape;
+  }
+
+  return (
+    <g>
+      {shape}
+      <circle
+        cx={x}
+        cy={y}
+        r={size * (markerScaleOverride ?? 0.6)}
+        fill="var(--event-3pt-marker, #dc2626)"
+      />
+    </g>
+  );
+}
+
 function renderEventMarker(
   action: NormalizedAction,
   eventType: EventType,
@@ -366,81 +486,21 @@ function renderEventMarker(
   const timeKey = `${action.period}|${action.clock}`;
   const isAnd1Point = eventType === "point" && and1AtTime.has(timeKey);
   const size = isAnd1Point ? baseSize * 0.88 : baseSize;
-  const color = getEventColor(EVENT_CONFIGS[eventType]);
   const isThree = isThreePointAction(action);
   const key = getActionKey(action, index);
   const title = getActionTitle(action, eventType);
-  let shape: ReactNode;
-
-  if (eventType === "point") {
-    shape = <circle cx={x} cy={ROW_Y} r={size} fill={color} />;
-  } else if (eventType === "miss") {
-    const thickness = size * 0.35;
-    shape = (
-      <path
-        d={`M ${x - size} ${ROW_Y - size + thickness} L ${x - thickness} ${ROW_Y} L ${x - size} ${ROW_Y + size - thickness} L ${x - size + thickness} ${ROW_Y + size} L ${x} ${ROW_Y + thickness} L ${x + size - thickness} ${ROW_Y + size} L ${x + size} ${ROW_Y + size - thickness} L ${x + thickness} ${ROW_Y} L ${x + size} ${ROW_Y - size + thickness} L ${x + size - thickness} ${ROW_Y - size} L ${x} ${ROW_Y - thickness} L ${x - size + thickness} ${ROW_Y - size} Z`}
-        fill={color}
-      />
-    );
-  } else if (eventType === "rebound") {
-    shape = (
-      <polygon
-        points={`${x},${ROW_Y - size} ${x + size},${ROW_Y} ${x},${ROW_Y + size} ${x - size},${ROW_Y}`}
-        fill={color}
-      />
-    );
-  } else if (eventType === "assist") {
-    shape = (
-      <polygon
-        points={`${x - size * 0.6},${ROW_Y - size} ${x + size},${ROW_Y} ${x - size * 0.6},${ROW_Y + size}`}
-        fill={color}
-      />
-    );
-  } else if (eventType === "turnover") {
-    shape = (
-      <polygon
-        points={`${x},${ROW_Y + size} ${x - size},${ROW_Y - size * 0.7} ${x + size},${ROW_Y - size * 0.7}`}
-        fill={color}
-      />
-    );
-  } else if (eventType === "block") {
-    shape = (
-      <rect
-        x={x - size * 0.8}
-        y={ROW_Y - size * 0.8}
-        width={size * 1.6}
-        height={size * 1.6}
-        fill={color}
-      />
-    );
-  } else if (eventType === "steal") {
-    shape = (
-      <polygon
-        points={`${x},${ROW_Y - size} ${x - size},${ROW_Y + size * 0.7} ${x + size},${ROW_Y + size * 0.7}`}
-        fill={color}
-      />
-    );
-  } else {
-    const angleStep = Math.PI / 3;
-    const points = Array.from({ length: 6 }, (_, pointIndex) => {
-      const angle = angleStep * pointIndex - Math.PI / 2;
-      return `${x + Math.cos(angle) * size},${ROW_Y + Math.sin(angle) * size}`;
-    }).join(" ");
-    shape = <polygon points={points} fill={color} />;
-  }
 
   return (
     <g key={`action-${key}`} className="player-game-timeline__event">
       <title>{title}</title>
-      {shape}
-      {isThree ? (
-        <circle
-          cx={x}
-          cy={ROW_Y}
-          r={size * (isAnd1Point ? 0.5 : 0.6)}
-          fill="var(--event-3pt-marker, #dc2626)"
-        />
-      ) : null}
+      {renderMarkerShape(
+        eventType,
+        x,
+        ROW_Y,
+        size,
+        isThree,
+        isAnd1Point ? 0.5 : null,
+      )}
     </g>
   );
 }
@@ -484,6 +544,236 @@ function renderFreeThrowMarker(
   );
 }
 
+function TimelineLegendIcon({
+  eventType,
+  isThree = false,
+}: {
+  eventType: EventType;
+  isThree?: boolean;
+}) {
+  return (
+    <svg
+      width={18}
+      height={18}
+      viewBox="0 0 18 18"
+      aria-hidden="true"
+      className="shrink-0 overflow-visible"
+    >
+      {renderMarkerShape(eventType, 9, 9, 5, isThree)}
+    </svg>
+  );
+}
+
+function FreeThrowLegendIcon({ isMiss = false }: { isMiss?: boolean }) {
+  return (
+    <svg
+      width={18}
+      height={18}
+      viewBox="0 0 18 18"
+      aria-hidden="true"
+      className="shrink-0 overflow-visible"
+    >
+      <circle
+        cx={9}
+        cy={9}
+        r={4}
+        fill="transparent"
+        stroke={isMiss ? "var(--event-miss, #475569)" : "var(--event-point, #f59e0b)"}
+        strokeWidth={1}
+      />
+    </svg>
+  );
+}
+
+function TimelineLegendItem({
+  label,
+  children,
+  isActive,
+}: {
+  label: string;
+  children: ReactNode;
+  isActive: boolean;
+}) {
+  return (
+    <span
+      className={`inline-flex items-center gap-0.5 whitespace-nowrap font-semibold text-muted transition-all ${
+        isActive ? "" : "opacity-35 line-through"
+      }`}
+    >
+      {children}
+      {label}
+    </span>
+  );
+}
+
+function TimelineLegendButton({
+  children,
+  isActive,
+  onToggle,
+  label,
+}: {
+  children: ReactNode;
+  isActive: boolean;
+  onToggle: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={isActive}
+      onClick={onToggle}
+      className={`inline-flex cursor-pointer items-center whitespace-nowrap rounded-md border-0 bg-transparent px-1.5 py-0.5 text-muted transition-all hover:bg-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
+        isActive ? "" : "opacity-35 line-through"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function TimelineLegend({
+  statOn,
+  onToggleStat,
+}: {
+  statOn?: boolean[];
+  onToggleStat?: (index: number) => void;
+}) {
+  const isEnabled = (index: number) => isStatEnabled(statOn, index);
+  const toggle = (index: number) => {
+    onToggleStat?.(index);
+  };
+
+  return (
+    <div className="flex max-w-full flex-nowrap items-center justify-center gap-x-5 overflow-x-auto py-1 text-[11px]">
+      <TimelineLegendButton
+        label="Toggle scoring"
+        isActive={isEnabled(EVENT_TYPE_STAT_INDEX.point)}
+        onToggle={() => toggle(EVENT_TYPE_STAT_INDEX.point)}
+      >
+        <div className="flex shrink-0 flex-nowrap items-center gap-x-1.5">
+          <TimelineLegendItem
+            label="2PT"
+            isActive={isEnabled(EVENT_TYPE_STAT_INDEX.point)}
+          >
+            <TimelineLegendIcon eventType="point" />
+          </TimelineLegendItem>
+          <TimelineLegendItem
+            label="3PT"
+            isActive={isEnabled(EVENT_TYPE_STAT_INDEX.point)}
+          >
+            <TimelineLegendIcon eventType="point" isThree />
+          </TimelineLegendItem>
+          <TimelineLegendItem
+            label="FT"
+            isActive={isEnabled(EVENT_TYPE_STAT_INDEX.point)}
+          >
+            <FreeThrowLegendIcon />
+          </TimelineLegendItem>
+        </div>
+      </TimelineLegendButton>
+      <TimelineLegendButton
+        label="Toggle misses"
+        isActive={isEnabled(EVENT_TYPE_STAT_INDEX.miss)}
+        onToggle={() => toggle(EVENT_TYPE_STAT_INDEX.miss)}
+      >
+        <div className="flex shrink-0 flex-nowrap items-center gap-x-1.5">
+          <TimelineLegendItem
+            label="Miss"
+            isActive={isEnabled(EVENT_TYPE_STAT_INDEX.miss)}
+          >
+            <TimelineLegendIcon eventType="miss" />
+          </TimelineLegendItem>
+          <TimelineLegendItem
+            label="3PT"
+            isActive={isEnabled(EVENT_TYPE_STAT_INDEX.miss)}
+          >
+            <TimelineLegendIcon eventType="miss" isThree />
+          </TimelineLegendItem>
+          <TimelineLegendItem
+            label="FT"
+            isActive={isEnabled(EVENT_TYPE_STAT_INDEX.miss)}
+          >
+            <FreeThrowLegendIcon isMiss />
+          </TimelineLegendItem>
+        </div>
+      </TimelineLegendButton>
+      <TimelineLegendButton
+        label="Toggle rebounds"
+        isActive={isEnabled(EVENT_TYPE_STAT_INDEX.rebound)}
+        onToggle={() => toggle(EVENT_TYPE_STAT_INDEX.rebound)}
+      >
+        <TimelineLegendItem
+          label="Rebound"
+          isActive={isEnabled(EVENT_TYPE_STAT_INDEX.rebound)}
+        >
+          <TimelineLegendIcon eventType="rebound" />
+        </TimelineLegendItem>
+      </TimelineLegendButton>
+      <TimelineLegendButton
+        label="Toggle assists"
+        isActive={isEnabled(EVENT_TYPE_STAT_INDEX.assist)}
+        onToggle={() => toggle(EVENT_TYPE_STAT_INDEX.assist)}
+      >
+        <TimelineLegendItem
+          label="Assist"
+          isActive={isEnabled(EVENT_TYPE_STAT_INDEX.assist)}
+        >
+          <TimelineLegendIcon eventType="assist" />
+        </TimelineLegendItem>
+      </TimelineLegendButton>
+      <TimelineLegendButton
+        label="Toggle turnovers"
+        isActive={isEnabled(EVENT_TYPE_STAT_INDEX.turnover)}
+        onToggle={() => toggle(EVENT_TYPE_STAT_INDEX.turnover)}
+      >
+        <TimelineLegendItem
+          label="Turnover"
+          isActive={isEnabled(EVENT_TYPE_STAT_INDEX.turnover)}
+        >
+          <TimelineLegendIcon eventType="turnover" />
+        </TimelineLegendItem>
+      </TimelineLegendButton>
+      <TimelineLegendButton
+        label="Toggle blocks"
+        isActive={isEnabled(EVENT_TYPE_STAT_INDEX.block)}
+        onToggle={() => toggle(EVENT_TYPE_STAT_INDEX.block)}
+      >
+        <TimelineLegendItem
+          label="Block"
+          isActive={isEnabled(EVENT_TYPE_STAT_INDEX.block)}
+        >
+          <TimelineLegendIcon eventType="block" />
+        </TimelineLegendItem>
+      </TimelineLegendButton>
+      <TimelineLegendButton
+        label="Toggle steals"
+        isActive={isEnabled(EVENT_TYPE_STAT_INDEX.steal)}
+        onToggle={() => toggle(EVENT_TYPE_STAT_INDEX.steal)}
+      >
+        <TimelineLegendItem
+          label="Steal"
+          isActive={isEnabled(EVENT_TYPE_STAT_INDEX.steal)}
+        >
+          <TimelineLegendIcon eventType="steal" />
+        </TimelineLegendItem>
+      </TimelineLegendButton>
+      <TimelineLegendButton
+        label="Toggle fouls"
+        isActive={isEnabled(EVENT_TYPE_STAT_INDEX.foul)}
+        onToggle={() => toggle(EVENT_TYPE_STAT_INDEX.foul)}
+      >
+        <TimelineLegendItem
+          label="Foul"
+          isActive={isEnabled(EVENT_TYPE_STAT_INDEX.foul)}
+        >
+          <TimelineLegendIcon eventType="foul" />
+        </TimelineLegendItem>
+      </TimelineLegendButton>
+    </div>
+  );
+}
+
 function inferPeriodCount(
   actions: NormalizedAction[],
   segments: NormalizedSegment[],
@@ -498,9 +788,12 @@ function inferPeriodCount(
 export function PlayerGameTimeline({
   actions = [],
   segments = [],
+  statOn,
+  onToggleStat,
 }: PlayerGameTimelineProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(1000);
+  const [isLegendOpen, setIsLegendOpen] = useState(false);
   const normalizedActions = actions
     .map(normalizeAction)
     .filter((action): action is NormalizedAction => Boolean(action));
@@ -539,7 +832,9 @@ export function PlayerGameTimeline({
   const getXForClock = (period: number, clock: string) =>
     getXForSeconds(getSecondsElapsed(period, clock));
   const periods = Array.from({ length: periodCount }, (_, index) => index + 1);
-  const renderableActions = normalizedActions.filter(isRenderableAction);
+  const renderableActions = normalizedActions
+    .filter(isRenderableAction)
+    .filter((action) => isActionEnabled(action, statOn));
   const pointAtTime = new Set<string>();
   const freeThrowOneAtTime = new Set<string>();
 
@@ -563,17 +858,18 @@ export function PlayerGameTimeline({
   );
 
   return (
-    <div
-      ref={containerRef}
-      className="mt-4 rounded-[14px] border border-border bg-card px-3 py-3"
-    >
-      <svg
-        className="block h-[76px] w-full overflow-visible"
-        viewBox={`0 0 ${svgWidth} ${SVG_HEIGHT}`}
-        role="img"
-        aria-label="Player minutes timeline for this game"
-        preserveAspectRatio="none"
+    <div className="mt-4">
+      <div
+        ref={containerRef}
+        className="rounded-[14px] border border-border bg-card px-3 py-3"
       >
+        <svg
+          className="block h-[76px] w-full overflow-visible"
+          viewBox={`0 0 ${svgWidth} ${SVG_HEIGHT}`}
+          role="img"
+          aria-label="Player minutes timeline for this game"
+          preserveAspectRatio="none"
+        >
         {periods.map((period) => {
           const periodStart = getPeriodStartSeconds(period);
           const periodEnd = periodStart + getPeriodDurationSeconds(period);
@@ -656,7 +952,24 @@ export function PlayerGameTimeline({
           stroke="var(--border)"
           strokeWidth={1}
         />
-      </svg>
+        </svg>
+      </div>
+      <div className="relative mt-1 h-7">
+        <div className="absolute inset-x-10 top-1/2 -translate-y-1/2">
+          {isLegendOpen ? (
+            <TimelineLegend statOn={statOn} onToggleStat={onToggleStat} />
+          ) : null}
+        </div>
+        <button
+          type="button"
+          aria-label={isLegendOpen ? "Hide legend" : "Show legend"}
+          aria-expanded={isLegendOpen}
+          onClick={() => setIsLegendOpen((isOpen) => !isOpen)}
+          className="absolute right-0 top-1/2 -translate-y-1/2 cursor-pointer px-1 py-0.5 text-[11px] leading-none text-muted transition-colors hover:text-foreground hover:underline focus-visible:rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+        >
+          {isLegendOpen ? "^" : "Legend"}
+        </button>
+      </div>
     </div>
   );
 }

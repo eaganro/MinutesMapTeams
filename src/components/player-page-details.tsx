@@ -7,7 +7,10 @@ import {
   type SeasonTypeSelectorOption,
 } from "@/components/season-type-selector";
 import { PlayerGameBoxscore } from "@/components/player-game-boxscore";
-import { PlayerGameTimeline } from "@/components/player-game-timeline";
+import {
+  PlayerGameTimeline,
+  PLAYER_TIMELINE_STAT_COUNT,
+} from "@/components/player-game-timeline";
 
 const INITIAL_GAME_COUNT = 10;
 const GAME_PAGE_SIZE = 10;
@@ -128,6 +131,9 @@ export function PlayerPageDetails({ playerPage }: PlayerPageDetailsProps) {
   const [visibleGames, setVisibleGames] = useState(
     Math.min(INITIAL_GAME_COUNT, playerPage.games.length),
   );
+  const [timelineStatOn, setTimelineStatOn] = useState(() =>
+    Array.from({ length: PLAYER_TIMELINE_STAT_COUNT }, () => true),
+  );
 
   const options = getSeasonTypeOptions(playerPage);
   const filteredGames = getGamesForFilter(playerPage.games, selectedFilter);
@@ -137,6 +143,14 @@ export function PlayerPageDetails({ playerPage }: PlayerPageDetailsProps) {
   function selectFilter(option: SeasonTypeSelectorOption<PlayerFilter>) {
     setSelectedFilter(option.value);
     setVisibleGames(Math.min(INITIAL_GAME_COUNT, option.count));
+  }
+
+  function toggleTimelineStat(index: number) {
+    setTimelineStatOn((currentStatOn) =>
+      currentStatOn.map((isOn, currentIndex) =>
+        currentIndex === index ? !isOn : isOn,
+      ),
+    );
   }
 
   return (
@@ -206,6 +220,8 @@ export function PlayerPageDetails({ playerPage }: PlayerPageDetailsProps) {
               <PlayerGameTimeline
                 actions={game.detail?.actions}
                 segments={game.detail?.segments}
+                statOn={timelineStatOn}
+                onToggleStat={toggleTimelineStat}
               />
             </div>
           ))}
