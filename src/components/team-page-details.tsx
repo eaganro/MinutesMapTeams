@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import type {
   StatLine,
   TeamGame,
@@ -15,6 +15,8 @@ import {
 
 const INITIAL_GAME_COUNT = 10;
 const GAME_PAGE_SIZE = 10;
+const INITIAL_UPCOMING_GAME_COUNT = 1;
+const UPCOMING_GAME_PAGE_SIZE = 3;
 const SEASON_TYPE_LABELS: Record<string, string> = {
   preseason: "Preseason",
   regular: "Regular Season",
@@ -133,6 +135,24 @@ function formatSeasonTypeLabel(seasonType: string) {
 
 function isCompletedGame(game: TeamGame) {
   return game.played !== false && game.result !== null;
+}
+
+function getGameDateTime(game: TeamGame) {
+  const startTimestamp = Date.parse(game.start);
+
+  if (Number.isFinite(startTimestamp)) {
+    return startTimestamp;
+  }
+
+  const dateTimestamp = Date.parse(`${game.date}T12:00:00Z`);
+
+  return Number.isFinite(dateTimestamp) ? dateTimestamp : 0;
+}
+
+function sortUpcomingGames(games: TeamGame[]) {
+  return [...games].sort(
+    (left, right) => getGameDateTime(left) - getGameDateTime(right),
+  );
 }
 
 function getResultBadgeClass(game: TeamGame) {
@@ -476,8 +496,13 @@ export function TeamPageDetails({
   games,
   players,
 }: TeamPageDetailsProps) {
-  const [visibleGames, setVisibleGames] = useState(
+  const gameResultsRef = useRef<HTMLDivElement>(null);
+  const upcomingControlRef = useRef<HTMLDivElement>(null);
+  const [visibleCompletedGames, setVisibleCompletedGames] = useState(
     Math.min(INITIAL_GAME_COUNT, games.length),
+  );
+  const [visibleUpcomingGames, setVisibleUpcomingGames] = useState(
+    INITIAL_UPCOMING_GAME_COUNT,
   );
   const [selectedPlayerFilter, setSelectedPlayerFilter] =
     useState<GameFilter>("all");
@@ -507,8 +532,36 @@ export function TeamPageDetails({
     selectedGameFilter === "all"
       ? games
       : games.filter((game) => isGameInFilter(game, selectedGameFilter));
-  const displayedGames = filteredGames.slice(0, visibleGames);
-  const hasMoreGames = visibleGames < filteredGames.length;
+  const upcomingGames = sortUpcomingGames(
+    filteredGames.filter((game) => !isCompletedGame(game)),
+  );
+  const completedGames = filteredGames.filter((game) => isCompletedGame(game));
+  const displayedUpcomingGames = upcomingGames.slice(0, visibleUpcomingGames);
+  const displayedCompletedGames = completedGames.slice(
+    0,
+    visibleCompletedGames,
+  );
+  const displayedGames = [
+    ...displayedUpcomingGames,
+    ...displayedCompletedGames,
+  ];
+  const hasMoreUpcomingGames = visibleUpcomingGames < upcomingGames.length;
+  const hasMoreCompletedGames = visibleCompletedGames < completedGames.length;
+
+  useLayoutEffect(() => {
+    const gameResults = gameResultsRef.current;
+    const upcomingControl = upcomingControlRef.current;
+
+    if (!gameResults || !upcomingControl) {
+      return;
+    }
+
+    const controlStyles = window.getComputedStyle(upcomingControl);
+    const controlOffset =
+      upcomingControl.offsetHeight + parseFloat(controlStyles.marginBottom);
+
+    gameResults.scrollTop = controlOffset;
+  }, [selectedGameFilter]);
 
   function selectPlayerFilter(option: SeasonTypeOption) {
     setSelectedPlayerFilter(option.value);
@@ -523,7 +576,8 @@ export function TeamPageDetails({
 
   function selectGameFilter(nextFilter: GameFilter, nextCount: number) {
     setSelectedGameFilter(nextFilter);
-    setVisibleGames(Math.min(INITIAL_GAME_COUNT, nextCount));
+    setVisibleCompletedGames(Math.min(INITIAL_GAME_COUNT, nextCount));
+    setVisibleUpcomingGames(INITIAL_UPCOMING_GAME_COUNT);
   }
 
   return (
@@ -646,7 +700,29 @@ export function TeamPageDetails({
           </div>
         </div>
 
-        <div className="mt-6 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+        <div
+          ref={gameResultsRef}
+          className="mt-6 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1"
+        >
+          {hasMoreUpcomingGames ? (
+            <div ref={upcomingControlRef} className="mb-5 flex justify-center">
+              <button
+                type="button"
+                onClick={() =>
+                  setVisibleUpcomingGames((currentValue) =>
+                    Math.min(
+                      currentValue + UPCOMING_GAME_PAGE_SIZE,
+                      upcomingGames.length,
+                    ),
+                  )
+                }
+                className="rounded-full border border-border-strong bg-card-alt px-5 py-2 text-sm text-copy transition-colors hover:bg-hover hover:text-foreground"
+              >
+                Show More Upcoming Games
+              </button>
+            </div>
+          ) : null}
+
           {displayedGames.map((game) => (
             <div
               key={game.gameId}
@@ -703,15 +779,15 @@ export function TeamPageDetails({
             </div>
           ))}
 
-          {hasMoreGames ? (
+          {hasMoreCompletedGames ? (
             <div className="mt-5 flex justify-center">
               <button
                 type="button"
                 onClick={() =>
-                  setVisibleGames((currentValue) =>
+                  setVisibleCompletedGames((currentValue) =>
                     Math.min(
                       currentValue + GAME_PAGE_SIZE,
-                      filteredGames.length,
+                      completedGames.length,
                     ),
                   )
                 }
