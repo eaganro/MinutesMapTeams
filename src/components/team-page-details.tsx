@@ -527,7 +527,7 @@ export function TeamPageDetails({
   }
 
   return (
-    <section className="grid gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+    <section className="flex flex-col gap-5">
       <article className="flex max-h-[760px] flex-col rounded-[20px] bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)]">
         <div className="flex flex-col gap-4">
           <h2 className="text-2xl font-semibold tracking-[-0.02em] text-heading">

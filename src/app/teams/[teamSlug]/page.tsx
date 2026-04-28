@@ -37,53 +37,16 @@ function formatUpdatedAt(value: string) {
   }).format(new Date(value));
 }
 
-function getPlayerAverageBox(player: TeamPlayerSeason) {
-  if (!player.averages) {
-    return null;
-  }
-
-  if ("box" in player.averages) {
-    return player.averages.box;
-  }
-
-  return player.averages;
-}
-
 function getPlayerTotalBox(player: TeamPlayerSeason): StatLine | null {
   return player.totals?.box ?? player.box ?? null;
 }
 
-function getPlayerAverageValue(
-  player: TeamPlayerSeason,
-  stat: keyof Pick<StatLine, "pts" | "reb" | "ast">,
-) {
-  return getPlayerAverageBox(player)?.[stat] ?? 0;
-}
-
-function getTopPlayers(players: TeamPlayerSeason[]) {
-  const sortByMinutes = [...players].sort(
+function getPlayersByMinutes(players: TeamPlayerSeason[]) {
+  return [...players].sort(
     (left, right) =>
       (getPlayerTotalBox(right)?.seconds ?? 0) -
       (getPlayerTotalBox(left)?.seconds ?? 0),
   );
-
-  const scoringLeader = [...players].sort(
-    (left, right) =>
-      getPlayerAverageValue(right, "pts") - getPlayerAverageValue(left, "pts"),
-  )[0];
-  const reboundLeader = [...players].sort(
-    (left, right) =>
-      getPlayerAverageValue(right, "reb") - getPlayerAverageValue(left, "reb"),
-  )[0];
-  const assistLeader = [...players].sort(
-    (left, right) =>
-      getPlayerAverageValue(right, "ast") - getPlayerAverageValue(left, "ast"),
-  )[0];
-
-  return {
-    players: sortByMinutes,
-    leaders: [scoringLeader, reboundLeader, assistLeader].filter(Boolean),
-  };
 }
 
 export async function generateMetadata({
@@ -107,7 +70,7 @@ export async function generateMetadata({
 
   return {
     title: `${teamPage.team.name} ${teamPage.season}`,
-    description: `${teamPage.team.name} season page with team averages, player leaders, and recent games.`,
+    description: `${teamPage.team.name} season page with team averages, full roster output, and game results.`,
   };
 }
 
@@ -129,7 +92,7 @@ export default async function TeamDetailPage({ params }: TeamPageProps) {
   }
 
   const allGames = [...teamPage.games].reverse();
-  const { players, leaders } = getTopPlayers(teamPage.players);
+  const players = getPlayersByMinutes(teamPage.players);
   const playerOptions = players.map((player) => ({
     id: player.playerId,
     name: player.name,
@@ -256,45 +219,6 @@ export default async function TeamDetailPage({ params }: TeamPageProps) {
             </dl>
           </div>
         </div>
-      </section>
-
-      <section className="rounded-[20px] bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)]">
-        <article>
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-muted">
-                Season Leaders
-              </p>
-              <h2 className="mt-3 text-2xl font-semibold tracking-[-0.02em] text-heading">
-                Top production
-              </h2>
-            </div>
-          </div>
-
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
-            {leaders.map((player, index) => {
-              const label =
-                index === 0 ? "Scoring" : index === 1 ? "Rebounding" : "Playmaking";
-              const averages = getPlayerAverageBox(player);
-
-              return (
-                <div key={`${label}-${player.playerId}`} className="rounded-[18px] bg-card-alt p-4">
-                  <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted">
-                    {label}
-                  </p>
-                  <h3 className="mt-3 text-lg font-semibold tracking-[-0.02em] text-heading">
-                    {player.name}
-                  </h3>
-                  <div className="mt-4 space-y-2 text-sm text-copy">
-                    <p>{(averages?.pts ?? 0).toFixed(1)} PPG</p>
-                    <p>{(averages?.reb ?? 0).toFixed(1)} RPG</p>
-                    <p>{(averages?.ast ?? 0).toFixed(1)} APG</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </article>
       </section>
 
       <TeamPageDetails games={allGames} players={players} />
