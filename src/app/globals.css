@@ -22,6 +22,8 @@
   --toggle-thumb-light: linear-gradient(135deg, #ffd54f 0%, #ffa726 100%);
   --toggle-thumb-dark: linear-gradient(135deg, #e0e0e0 0%, #9e9e9e 100%);
   --timeline-player-line: #334155;
+  --line-color-light: #4b5563;
+  --playline-hover: #a0a11b;
   --event-point: #f59e0b;
   --event-miss: #475569;
   --event-rebound: #2563eb;
@@ -59,6 +61,8 @@
   --toggle-thumb-light: linear-gradient(135deg, #ffd54f 0%, #ffa726 100%);
   --toggle-thumb-dark: linear-gradient(135deg, #e0e0e0 0%, #9e9e9e 100%);
   --timeline-player-line: #cbd5e1;
+  --line-color-light: #a3a3a3;
+  --playline-hover: #dadb39;
   --event-point: #fbbf24;
   --event-miss: #94a3b8;
   --event-rebound: #60a5fa;

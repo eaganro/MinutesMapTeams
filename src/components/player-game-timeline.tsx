@@ -250,6 +250,41 @@ function isThreePointAction(action: NormalizedAction) {
   return actionType === "3pt" || description.includes("3pt");
 }
 
+function getFreeThrowAttempt(action: NormalizedAction) {
+  const text = `${action.subType || ""} ${action.description || ""}`;
+  const match = text.match(
+    /\b(?:ft|free throw)\b\s*(\d+)\s*(?:of|\/)\s*(\d+)/i,
+  );
+
+  if (!match) {
+    return { attempt: 1, total: 1 };
+  }
+
+  return { attempt: Number(match[1]), total: Number(match[2]) };
+}
+
+function getFreeThrowRingRatio(attempt: number, total: number) {
+  if (total <= 1) {
+    return 0.8;
+  }
+
+  if (attempt === 1) {
+    return 0.6;
+  }
+
+  if (attempt === 2) {
+    return 0.8;
+  }
+
+  return 1.1;
+}
+
+function isOneOfOneFreeThrow(action: NormalizedAction) {
+  const text = `${action.subType || ""} ${action.description || ""}`;
+
+  return /\b(?:ft|free throw)\b\s*1\s*(?:of|\/)\s*1/i.test(text);
+}
+
 function getEventType(action: NormalizedAction): EventType | null {
   const description = action.description.toLowerCase();
   const actionType = action.actionType.toLowerCase();
@@ -325,8 +360,12 @@ function renderEventMarker(
   eventType: EventType,
   x: number,
   index: number,
+  and1AtTime: Set<string>,
 ) {
-  const size = 5;
+  const baseSize = 4;
+  const timeKey = `${action.period}|${action.clock}`;
+  const isAnd1Point = eventType === "point" && and1AtTime.has(timeKey);
+  const size = isAnd1Point ? baseSize * 0.88 : baseSize;
   const color = getEventColor(EVENT_CONFIGS[eventType]);
   const isThree = isThreePointAction(action);
   const key = getActionKey(action, index);
@@ -395,17 +434,38 @@ function renderEventMarker(
       <title>{title}</title>
       {shape}
       {isThree ? (
-        <circle cx={x} cy={ROW_Y} r={size * 0.55} fill="var(--event-3pt-marker, #dc2626)" />
+        <circle
+          cx={x}
+          cy={ROW_Y}
+          r={size * (isAnd1Point ? 0.5 : 0.6)}
+          fill="var(--event-3pt-marker, #dc2626)"
+        />
       ) : null}
     </g>
   );
 }
 
-function renderFreeThrowMarker(action: NormalizedAction, x: number, index: number) {
+function renderFreeThrowMarker(
+  action: NormalizedAction,
+  x: number,
+  index: number,
+  pointAtTime: Set<string>,
+) {
   const isMiss = hasMissToken(action.description) || action.result.toLowerCase() === "x";
   const color = isMiss
     ? "var(--event-miss, #475569)"
     : "var(--event-point, #f59e0b)";
+  const size = 4;
+  const strokeWidth = Math.max(1, size * 0.2);
+  const { attempt, total } = getFreeThrowAttempt(action);
+  const isAnd1 =
+    isOneOfOneFreeThrow(action) && pointAtTime.has(`${action.period}|${action.clock}`);
+  let ringRadius = size * (isAnd1 ? 1.15 : getFreeThrowRingRatio(attempt, total));
+
+  if (!isAnd1 && total > 1 && attempt === 1) {
+    ringRadius = Math.max(0.5, ringRadius - strokeWidth / 2);
+  }
+
   const key = getActionKey(action, index);
 
   return (
@@ -414,10 +474,10 @@ function renderFreeThrowMarker(action: NormalizedAction, x: number, index: numbe
       className="player-game-timeline__event"
       cx={x}
       cy={ROW_Y}
-      r={5}
+      r={ringRadius}
       fill="transparent"
       stroke={color}
-      strokeWidth={1.5}
+      strokeWidth={strokeWidth}
     >
       <title>{getActionTitle(action, "free-throw")}</title>
     </circle>
@@ -479,6 +539,28 @@ export function PlayerGameTimeline({
   const getXForClock = (period: number, clock: string) =>
     getXForSeconds(getSecondsElapsed(period, clock));
   const periods = Array.from({ length: periodCount }, (_, index) => index + 1);
+  const renderableActions = normalizedActions.filter(isRenderableAction);
+  const pointAtTime = new Set<string>();
+  const freeThrowOneAtTime = new Set<string>();
+
+  renderableActions.forEach((action) => {
+    const timeKey = `${action.period}|${action.clock}`;
+
+    if (isFreeThrowAction(action)) {
+      if (isOneOfOneFreeThrow(action)) {
+        freeThrowOneAtTime.add(timeKey);
+      }
+      return;
+    }
+
+    if (getEventType(action) === "point") {
+      pointAtTime.add(timeKey);
+    }
+  });
+
+  const and1AtTime = new Set(
+    [...pointAtTime].filter((timeKey) => freeThrowOneAtTime.has(timeKey)),
+  );
 
   return (
     <div
@@ -532,20 +614,6 @@ export function PlayerGameTimeline({
           strokeWidth={1}
         />
 
-        {periods.map((period) => {
-          const periodStart = getPeriodStartSeconds(period);
-          const periodEnd = periodStart + getPeriodDurationSeconds(period);
-          const x1 = getXForSeconds(periodStart);
-          const x2 = getXForSeconds(periodEnd);
-
-          return (
-            <g key={`cap-${period}`}>
-              <circle cx={x1} cy={ROW_Y} r={2} fill="var(--muted)" />
-              <circle cx={x2} cy={ROW_Y} r={2} fill="var(--muted)" />
-            </g>
-          );
-        })}
-
         {normalizedSegments.map((segment, index) => {
           const x1 = getXForClock(segment.period, segment.start);
           const x2 = getXForClock(segment.period, segment.end);
@@ -557,31 +625,28 @@ export function PlayerGameTimeline({
               y1={ROW_Y}
               x2={x2}
               y2={ROW_Y}
-              stroke="var(--timeline-player-line, #334155)"
-              strokeWidth={4}
-              strokeLinecap="round"
+              stroke="var(--line-color-light, var(--timeline-player-line, #334155))"
+              strokeWidth={1.5}
             >
               <title>{`${formatPeriodLabel(segment.period)} ${formatClock(segment.start)} - ${formatClock(segment.end)}`}</title>
             </line>
           );
         })}
 
-        {normalizedActions
-          .filter(isRenderableAction)
-          .map((action, index) => {
-            const x = getXForClock(action.period, action.clock);
+        {renderableActions.map((action, index) => {
+          const x = getXForClock(action.period, action.clock);
 
-            if (isFreeThrowAction(action)) {
-              return renderFreeThrowMarker(action, x, index);
-            }
+          if (isFreeThrowAction(action)) {
+            return renderFreeThrowMarker(action, x, index, pointAtTime);
+          }
 
-            const eventType = getEventType(action);
-            if (!eventType) {
-              return null;
-            }
+          const eventType = getEventType(action);
+          if (!eventType) {
+            return null;
+          }
 
-            return renderEventMarker(action, eventType, x, index);
-          })}
+          return renderEventMarker(action, eventType, x, index, and1AtTime);
+        })}
 
         <line
           x1={svgWidth - CHART_RIGHT}
