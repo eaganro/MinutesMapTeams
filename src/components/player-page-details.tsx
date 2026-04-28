@@ -6,6 +6,7 @@ import {
   SeasonTypeSelector,
   type SeasonTypeSelectorOption,
 } from "@/components/season-type-selector";
+import { PlayerGameTimeline } from "@/components/player-game-timeline";
 
 const INITIAL_GAME_COUNT = 10;
 const GAME_PAGE_SIZE = 10;
@@ -226,6 +227,11 @@ export function PlayerPageDetails({ playerPage }: PlayerPageDetailsProps) {
                   </span>
                 </p>
               </div>
+
+              <PlayerGameTimeline
+                actions={game.detail?.actions}
+                segments={game.detail?.segments}
+              />
             </div>
           ))}
 

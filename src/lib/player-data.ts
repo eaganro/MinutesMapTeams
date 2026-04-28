@@ -39,6 +39,39 @@ export type PlayerSeasonSplit = {
   };
 };
 
+export type PlayerGameAction = {
+  quarter?: number;
+  period?: number;
+  time?: string;
+  clock?: string;
+  type?: string;
+  actionType?: string;
+  text?: string;
+  description?: string;
+  detail?: string;
+  subType?: string;
+  seq?: number;
+  actionNumber?: number;
+  r?: string;
+  result?: string;
+  awayScore?: string | number;
+  homeScore?: string | number;
+  scoreAway?: string | number;
+  scoreHome?: string | number;
+};
+
+export type PlayerGameSegment = {
+  quarter?: number;
+  period?: number;
+  start?: string;
+  end?: string;
+};
+
+export type PlayerGameDetail = {
+  actions: PlayerGameAction[];
+  segments: PlayerGameSegment[];
+};
+
 export type PlayerGame = {
   gameId: string;
   nbaGameId: string;
@@ -60,6 +93,7 @@ export type PlayerGame = {
   gamepackKey: string;
   playerId: number;
   playerKey: string;
+  detail?: PlayerGameDetail;
 };
 
 export type PlayerPageData = {
