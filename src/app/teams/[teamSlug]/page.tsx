@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { PlayersDropdown } from "@/components/players-dropdown";
 import { TeamPageDetails } from "@/components/team-page-details";
 import {
   CURRENT_SEASON,
@@ -129,6 +130,10 @@ export default async function TeamDetailPage({ params }: TeamPageProps) {
 
   const allGames = [...teamPage.games].reverse();
   const { players, leaders } = getTopPlayers(teamPage.players);
+  const playerOptions = players.map((player) => ({
+    id: player.playerId,
+    name: player.name,
+  }));
 
   return (
     <main className="mx-auto mt-2 flex w-full max-w-[1235px] flex-col gap-5 pb-10">
@@ -146,6 +151,19 @@ export default async function TeamDetailPage({ params }: TeamPageProps) {
                 {teamPage.season} season snapshot for the {teamPage.team.name},
                 powered by the full processed team payload in S3.
               </p>
+              <div className="flex flex-wrap items-center gap-2 pt-1 text-sm">
+                <PlayersDropdown
+                  players={playerOptions}
+                  teamAbbr={teamPage.team.abbr}
+                  teamName={teamPage.team.name}
+                />
+                <Link
+                  href="/teams"
+                  className="rounded-full border border-border-strong bg-card-alt px-4 py-2 text-copy transition-colors hover:bg-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                >
+                  All Teams
+                </Link>
+              </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -251,12 +269,6 @@ export default async function TeamDetailPage({ params }: TeamPageProps) {
                 Top production
               </h2>
             </div>
-            <Link
-              href="/teams"
-              className="rounded-full border border-border-strong bg-card-alt px-4 py-2 text-sm text-copy transition-colors hover:bg-hover hover:text-foreground"
-            >
-              All Teams
-            </Link>
           </div>
 
           <div className="mt-6 grid gap-4 md:grid-cols-3">

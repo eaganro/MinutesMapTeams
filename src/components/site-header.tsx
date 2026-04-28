@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { TEAM_ABBREVIATIONS } from "@/lib/team-data";
 import { siteConfig } from "@/lib/site-config";
-import { PlayersDropdown } from "@/components/players-dropdown";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TeamsDropdown } from "@/components/teams-dropdown";
 
@@ -40,7 +39,6 @@ export function SiteHeader() {
       <div className="flex items-center gap-2 text-sm">
         <nav className="flex items-center gap-2">
           <TeamsDropdown teams={[...TEAM_ABBREVIATIONS]} />
-          <PlayersDropdown teams={[...TEAM_ABBREVIATIONS]} />
         </nav>
         <ThemeToggle />
       </div>
