@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useState } from "react";
 import type {
   StatLine,
   TeamGame,
@@ -13,10 +13,12 @@ import {
   type SeasonTypeSelectorOption,
 } from "@/components/season-type-selector";
 
-const INITIAL_GAME_COUNT = 10;
-const GAME_PAGE_SIZE = 10;
+const INITIAL_PLAYER_COUNT = 8;
+const PLAYER_PAGE_SIZE = 5;
+const INITIAL_GAME_COUNT = 5;
+const GAME_PAGE_SIZE = 5;
 const INITIAL_UPCOMING_GAME_COUNT = 1;
-const UPCOMING_GAME_PAGE_SIZE = 3;
+const UPCOMING_GAME_PAGE_SIZE = 5;
 const SEASON_TYPE_LABELS: Record<string, string> = {
   preseason: "Preseason",
   regular: "Regular Season",
@@ -496,8 +498,7 @@ export function TeamPageDetails({
   games,
   players,
 }: TeamPageDetailsProps) {
-  const gameResultsRef = useRef<HTMLDivElement>(null);
-  const upcomingControlRef = useRef<HTMLDivElement>(null);
+  const [visiblePlayers, setVisiblePlayers] = useState(INITIAL_PLAYER_COUNT);
   const [visibleCompletedGames, setVisibleCompletedGames] = useState(
     Math.min(INITIAL_GAME_COUNT, games.length),
   );
@@ -528,6 +529,8 @@ export function TeamPageDetails({
     playerSortKey,
     playerSortDirection,
   );
+  const displayedPlayers = sortedPlayers.slice(0, visiblePlayers);
+  const hasMorePlayers = visiblePlayers < sortedPlayers.length;
   const filteredGames =
     selectedGameFilter === "all"
       ? games
@@ -548,23 +551,9 @@ export function TeamPageDetails({
   const hasMoreUpcomingGames = visibleUpcomingGames < upcomingGames.length;
   const hasMoreCompletedGames = visibleCompletedGames < completedGames.length;
 
-  useLayoutEffect(() => {
-    const gameResults = gameResultsRef.current;
-    const upcomingControl = upcomingControlRef.current;
-
-    if (!gameResults || !upcomingControl) {
-      return;
-    }
-
-    const controlStyles = window.getComputedStyle(upcomingControl);
-    const controlOffset =
-      upcomingControl.offsetHeight + parseFloat(controlStyles.marginBottom);
-
-    gameResults.scrollTop = controlOffset;
-  }, [selectedGameFilter]);
-
   function selectPlayerFilter(option: SeasonTypeOption) {
     setSelectedPlayerFilter(option.value);
+    setVisiblePlayers(INITIAL_PLAYER_COUNT);
   }
 
   function selectPlayerSort(nextSortKey: PlayerSortKey) {
@@ -582,7 +571,7 @@ export function TeamPageDetails({
 
   return (
     <section className="flex flex-col gap-5">
-      <article className="flex max-h-[760px] flex-col rounded-[20px] bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)]">
+      <article className="rounded-[20px] bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)]">
         <div className="flex flex-col gap-4">
           <h2 className="text-2xl font-semibold tracking-[-0.02em] text-heading">
             Full roster output
@@ -600,7 +589,7 @@ export function TeamPageDetails({
           </div>
         </div>
 
-        <div className="mt-6 min-h-0 flex-1 overflow-y-auto pr-1">
+        <div className="mt-6">
           <div className="overflow-x-auto">
             <table className="min-w-full border-separate border-spacing-y-2 text-left text-sm">
               <thead>
@@ -641,7 +630,7 @@ export function TeamPageDetails({
                 </tr>
               </thead>
               <tbody>
-                {sortedPlayers.map((player) => (
+                {displayedPlayers.map((player) => (
                   <tr
                     key={player.playerId}
                     className="rounded-[16px] bg-card-alt text-copy"
@@ -677,10 +666,29 @@ export function TeamPageDetails({
               </tbody>
             </table>
           </div>
+
+          {hasMorePlayers ? (
+            <div className="mt-5 flex justify-center">
+              <button
+                type="button"
+                onClick={() =>
+                  setVisiblePlayers((currentValue) =>
+                    Math.min(
+                      currentValue + PLAYER_PAGE_SIZE,
+                      sortedPlayers.length,
+                    ),
+                  )
+                }
+                className="rounded-full border border-border-strong bg-card-alt px-5 py-2 text-sm text-copy transition-colors hover:bg-hover hover:text-foreground"
+              >
+                Show More Players
+              </button>
+            </div>
+          ) : null}
         </div>
       </article>
 
-      <article className="flex max-h-[760px] flex-col rounded-[20px] bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)]">
+      <article className="rounded-[20px] bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)]">
         <div className="flex flex-col gap-4">
           <h2 className="text-2xl font-semibold tracking-[-0.02em] text-heading">
             Game results
@@ -700,12 +708,9 @@ export function TeamPageDetails({
           </div>
         </div>
 
-        <div
-          ref={gameResultsRef}
-          className="mt-6 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1"
-        >
+        <div className="mt-6 space-y-3">
           {hasMoreUpcomingGames ? (
-            <div ref={upcomingControlRef} className="mb-5 flex justify-center">
+            <div className="mb-5 flex justify-center">
               <button
                 type="button"
                 onClick={() =>

@@ -12,8 +12,8 @@ import {
   PLAYER_TIMELINE_STAT_COUNT,
 } from "@/components/player-game-timeline";
 
-const INITIAL_GAME_COUNT = 10;
-const GAME_PAGE_SIZE = 10;
+const INITIAL_GAME_COUNT = 5;
+const GAME_PAGE_SIZE = 5;
 const SEASON_TYPE_LABELS: Record<string, string> = {
   preseason: "Preseason",
   regular: "Regular Season",
@@ -155,7 +155,7 @@ export function PlayerPageDetails({ playerPage }: PlayerPageDetailsProps) {
 
   return (
     <section>
-      <article className="flex max-h-[760px] flex-col rounded-[20px] bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)]">
+      <article className="rounded-[20px] bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)]">
         <div className="flex flex-col gap-4">
           <h2 className="text-2xl font-semibold tracking-[-0.02em] text-heading">
             Player games
@@ -173,7 +173,7 @@ export function PlayerPageDetails({ playerPage }: PlayerPageDetailsProps) {
           </div>
         </div>
 
-        <div className="mt-6 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+        <div className="mt-6 space-y-3">
           {displayedGames.map((game) => (
             <div
               key={game.gameId}
