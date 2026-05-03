@@ -15,6 +15,10 @@ type PlayerPageProps = {
   }>;
 };
 
+export function generateStaticParams() {
+  return [];
+}
+
 function formatSeasonRecord(wins: number, losses: number, ties = 0) {
   return ties > 0 ? `${wins}-${losses}-${ties}` : `${wins}-${losses}`;
 }

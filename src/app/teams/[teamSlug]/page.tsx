@@ -7,7 +7,6 @@ import {
   CURRENT_SEASON,
   getTeamPageData,
   isTeamAbbreviation,
-  TEAM_ABBREVIATIONS,
   type StatLine,
   type TeamPlayerSeason,
 } from "@/lib/team-data";
@@ -75,7 +74,7 @@ export async function generateMetadata({
 }
 
 export function generateStaticParams() {
-  return TEAM_ABBREVIATIONS.map((teamSlug) => ({ teamSlug }));
+  return [];
 }
 
 export default async function TeamDetailPage({ params }: TeamPageProps) {
