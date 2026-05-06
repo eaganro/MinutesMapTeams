@@ -11,6 +11,7 @@ const SVG_HEIGHT = 76;
 const ROW_Y = 42;
 const CHART_LEFT = 14;
 const CHART_RIGHT = 14;
+const NBA_EVENT_BASE_URL = "https://www.nba.com/stats/events";
 export const PLAYER_TIMELINE_STAT_COUNT = 8;
 const EVENT_TYPE_STAT_INDEX: Record<EventType, number> = {
   point: 0,
@@ -42,6 +43,8 @@ type NormalizedSegment = {
 type PlayerGameTimelineProps = {
   actions?: PlayerGameAction[];
   segments?: PlayerGameSegment[];
+  nbaGameId?: string;
+  season?: string;
   statOn?: boolean[];
   onToggleStat?: (index: number) => void;
 };
@@ -373,6 +376,161 @@ function isActionEnabled(action: NormalizedAction, statOn?: boolean[]) {
   return statIndex === null || isStatEnabled(statOn, statIndex);
 }
 
+function normalizeEventId(actionNumber: number | null) {
+  if (actionNumber === null) {
+    return null;
+  }
+
+  const match = String(actionNumber).trim().match(/\d+/);
+  return match ? match[0] : null;
+}
+
+function getSeasonLabelFromGameId(gameId?: string) {
+  if (!gameId) {
+    return null;
+  }
+
+  const normalized = String(gameId).trim().padStart(10, "0");
+  if (normalized.length < 5) {
+    return null;
+  }
+
+  const year = Number(normalized.slice(3, 5));
+  if (!Number.isFinite(year)) {
+    return null;
+  }
+
+  const startYear = 2000 + year;
+  return `${startYear}-${String(startYear + 1).slice(-2)}`;
+}
+
+function buildNbaEventUrl({
+  gameId,
+  actionNumber,
+  description,
+  season,
+}: {
+  gameId?: string;
+  actionNumber: number | null;
+  description?: string;
+  season?: string;
+}) {
+  const eventId = normalizeEventId(actionNumber);
+  if (!gameId || !eventId) {
+    return null;
+  }
+
+  const seasonLabel = season || getSeasonLabelFromGameId(gameId);
+  if (!seasonLabel) {
+    return null;
+  }
+
+  const params = new URLSearchParams({
+    GameEventID: eventId,
+    GameID: String(gameId).padStart(10, "0"),
+    Season: seasonLabel,
+    flag: "1",
+    title: description || "",
+  });
+
+  return `${NBA_EVENT_BASE_URL}?${params.toString()}`;
+}
+
+function resolveVideoAction(
+  action: NormalizedAction,
+  allActions: NormalizedAction[],
+) {
+  const eventType = getEventType(action);
+
+  if (isFreeThrowAction(action)) {
+    const pointAction = allActions.find(
+      (entry) =>
+        entry.clock === action.clock &&
+        entry.period === action.period &&
+        getEventType(entry) === "point",
+    );
+    if (pointAction) {
+      return pointAction;
+    }
+  }
+
+  if (eventType === "block") {
+    const missAction = allActions.find(
+      (entry) =>
+        entry.clock === action.clock &&
+        entry.period === action.period &&
+        getEventType(entry) === "miss",
+    );
+    if (missAction) {
+      return missAction;
+    }
+  }
+
+  if (eventType === "steal") {
+    const turnoverAction = allActions.find(
+      (entry) =>
+        entry.clock === action.clock &&
+        entry.period === action.period &&
+        getEventType(entry) === "turnover",
+    );
+    if (turnoverAction) {
+      return turnoverAction;
+    }
+  }
+
+  return action;
+}
+
+function getActionVideoUrl(
+  action: NormalizedAction,
+  allActions: NormalizedAction[],
+  nbaGameId?: string,
+  season?: string,
+) {
+  const videoAction = resolveVideoAction(action, allActions);
+
+  return buildNbaEventUrl({
+    gameId: nbaGameId,
+    actionNumber: videoAction.actionNumber ?? action.actionNumber,
+    description: videoAction.description || action.description,
+    season,
+  });
+}
+
+function NbaEventLink({
+  action,
+  allActions,
+  ariaLabel,
+  children,
+  nbaGameId,
+  season,
+}: {
+  action: NormalizedAction;
+  allActions: NormalizedAction[];
+  ariaLabel: string;
+  children: ReactNode;
+  nbaGameId?: string;
+  season?: string;
+}) {
+  const url = getActionVideoUrl(action, allActions, nbaGameId, season);
+
+  if (!url) {
+    return <>{children}</>;
+  }
+
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={`Open play on nba.com: ${ariaLabel}`}
+      className="player-game-timeline__event-link"
+    >
+      {children}
+    </a>
+  );
+}
+
 function getEventColor(config: EventConfig) {
   return `var(${config.colorVar}, ${config.fallback})`;
 }
@@ -481,6 +639,9 @@ function renderEventMarker(
   x: number,
   index: number,
   and1AtTime: Set<string>,
+  allActions: NormalizedAction[],
+  nbaGameId?: string,
+  season?: string,
 ) {
   const baseSize = 4;
   const timeKey = `${action.period}|${action.clock}`;
@@ -493,14 +654,22 @@ function renderEventMarker(
   return (
     <g key={`action-${key}`} className="player-game-timeline__event">
       <title>{title}</title>
-      {renderMarkerShape(
-        eventType,
-        x,
-        ROW_Y,
-        size,
-        isThree,
-        isAnd1Point ? 0.5 : null,
-      )}
+      <NbaEventLink
+        action={action}
+        allActions={allActions}
+        ariaLabel={title}
+        nbaGameId={nbaGameId}
+        season={season}
+      >
+        {renderMarkerShape(
+          eventType,
+          x,
+          ROW_Y,
+          size,
+          isThree,
+          isAnd1Point ? 0.5 : null,
+        )}
+      </NbaEventLink>
     </g>
   );
 }
@@ -510,6 +679,9 @@ function renderFreeThrowMarker(
   x: number,
   index: number,
   pointAtTime: Set<string>,
+  allActions: NormalizedAction[],
+  nbaGameId?: string,
+  season?: string,
 ) {
   const isMiss = hasMissToken(action.description) || action.result.toLowerCase() === "x";
   const color = isMiss
@@ -527,20 +699,28 @@ function renderFreeThrowMarker(
   }
 
   const key = getActionKey(action, index);
+  const title = getActionTitle(action, "free-throw");
 
   return (
-    <circle
-      key={`free-throw-${key}`}
-      className="player-game-timeline__event"
-      cx={x}
-      cy={ROW_Y}
-      r={ringRadius}
-      fill="transparent"
-      stroke={color}
-      strokeWidth={strokeWidth}
-    >
-      <title>{getActionTitle(action, "free-throw")}</title>
-    </circle>
+    <g key={`free-throw-${key}`} className="player-game-timeline__event">
+      <title>{title}</title>
+      <NbaEventLink
+        action={action}
+        allActions={allActions}
+        ariaLabel={title}
+        nbaGameId={nbaGameId}
+        season={season}
+      >
+        <circle
+          cx={x}
+          cy={ROW_Y}
+          r={ringRadius}
+          fill="transparent"
+          stroke={color}
+          strokeWidth={strokeWidth}
+        />
+      </NbaEventLink>
+    </g>
   );
 }
 
@@ -788,6 +968,8 @@ function inferPeriodCount(
 export function PlayerGameTimeline({
   actions = [],
   segments = [],
+  nbaGameId,
+  season,
   statOn,
   onToggleStat,
 }: PlayerGameTimelineProps) {
@@ -933,7 +1115,15 @@ export function PlayerGameTimeline({
           const x = getXForClock(action.period, action.clock);
 
           if (isFreeThrowAction(action)) {
-            return renderFreeThrowMarker(action, x, index, pointAtTime);
+            return renderFreeThrowMarker(
+              action,
+              x,
+              index,
+              pointAtTime,
+              normalizedActions,
+              nbaGameId,
+              season,
+            );
           }
 
           const eventType = getEventType(action);
@@ -941,7 +1131,16 @@ export function PlayerGameTimeline({
             return null;
           }
 
-          return renderEventMarker(action, eventType, x, index, and1AtTime);
+          return renderEventMarker(
+            action,
+            eventType,
+            x,
+            index,
+            and1AtTime,
+            normalizedActions,
+            nbaGameId,
+            season,
+          );
         })}
 
         <line

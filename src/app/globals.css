@@ -121,6 +121,15 @@ a {
   text-decoration: none;
 }
 
+.player-game-timeline__event-link {
+  cursor: pointer;
+  outline: none;
+}
+
+.player-game-timeline__event-link:focus-visible {
+  filter: drop-shadow(0 0 0.25rem var(--focus));
+}
+
 button,
 input,
 textarea,

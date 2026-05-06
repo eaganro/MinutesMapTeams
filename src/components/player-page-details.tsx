@@ -220,6 +220,8 @@ export function PlayerPageDetails({ playerPage }: PlayerPageDetailsProps) {
               <PlayerGameTimeline
                 actions={game.detail?.actions}
                 segments={game.detail?.segments}
+                nbaGameId={game.nbaGameId}
+                season={game.season}
                 statOn={timelineStatOn}
                 onToggleStat={toggleTimelineStat}
               />
