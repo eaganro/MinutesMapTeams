@@ -5,6 +5,7 @@ import { PlayerPageDetails } from "@/components/player-page-details";
 import {
   getPlayerPageData,
   isPlayerId,
+  type PlayerGame,
   type PlayerPageData,
 } from "@/lib/player-data";
 import { CURRENT_SEASON, isTeamAbbreviation } from "@/lib/team-data";
@@ -27,6 +28,10 @@ function formatSignedNumber(value: number) {
   return value > 0 ? `+${value}` : `${value}`;
 }
 
+function formatNullableAverage(value: number | undefined) {
+  return value === undefined ? "-" : value.toFixed(1);
+}
+
 function formatUpdatedAt(value: string) {
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
@@ -38,12 +43,108 @@ function formatUpdatedAt(value: string) {
   }).format(new Date(value));
 }
 
-function formatTeams(playerPage: PlayerPageData) {
-  return playerPage.teams.map((team) => team.abbr).join(", ");
+function getRegularSeasonGames(playerPage: PlayerPageData) {
+  return playerPage.games.filter((game) => game.seasonType === "regular");
 }
 
-function getLinkedTeams(playerPage: PlayerPageData) {
-  return playerPage.teams.filter((team) => isTeamAbbreviation(team.abbr));
+function getRegularSeasonTeams(playerPage: PlayerPageData) {
+  const regularSeasonSplit = playerPage.bySeasonType.regular;
+  const teamsByAbbreviation = new Map<string, PlayerPageData["teams"][number]>();
+
+  for (const team of regularSeasonSplit?.teams ?? []) {
+    teamsByAbbreviation.set(team.abbr, team);
+  }
+
+  for (const game of getRegularSeasonGames(playerPage)) {
+    teamsByAbbreviation.set(game.teamAbbr, {
+      id: game.teamId,
+      abbr: game.teamAbbr,
+      name: game.teamName,
+    });
+  }
+
+  if (teamsByAbbreviation.size === 0) {
+    for (const team of playerPage.teams) {
+      teamsByAbbreviation.set(team.abbr, team);
+    }
+  }
+
+  return [...teamsByAbbreviation.values()].filter((team) =>
+    isTeamAbbreviation(team.abbr),
+  );
+}
+
+function formatTeams(teams: PlayerPageData["teams"]) {
+  return teams.map((team) => team.abbr).join(", ");
+}
+
+function countRegularSeasonRecord(games: PlayerGame[]) {
+  return games.reduce(
+    (record, game) => {
+      if (game.result === "W") {
+        record.wins += 1;
+      } else if (game.result === "L") {
+        record.losses += 1;
+      } else {
+        record.ties += 1;
+      }
+
+      return record;
+    },
+    {
+      wins: 0,
+      losses: 0,
+      ties: 0,
+    },
+  );
+}
+
+function averageRegularSeasonBox(games: PlayerGame[]) {
+  if (games.length === 0) {
+    return {
+      pts: undefined,
+      reb: undefined,
+      ast: undefined,
+      pm: undefined,
+    };
+  }
+
+  const totals = games.reduce(
+    (boxTotals, game) => ({
+      pts: boxTotals.pts + game.box.pts,
+      reb: boxTotals.reb + game.box.reb,
+      ast: boxTotals.ast + game.box.ast,
+      pm: boxTotals.pm + (game.box.pm ?? 0),
+    }),
+    {
+      pts: 0,
+      reb: 0,
+      ast: 0,
+      pm: 0,
+    },
+  );
+
+  return {
+    pts: totals.pts / games.length,
+    reb: totals.reb / games.length,
+    ast: totals.ast / games.length,
+    pm: totals.pm / games.length,
+  };
+}
+
+function getRegularSeasonSummary(playerPage: PlayerPageData) {
+  const regularSeasonSplit = playerPage.bySeasonType.regular;
+  const regularSeasonGames = getRegularSeasonGames(playerPage);
+
+  return {
+    teams: getRegularSeasonTeams(playerPage),
+    games: regularSeasonSplit?.games ?? regularSeasonGames.length,
+    record:
+      regularSeasonSplit?.record ?? countRegularSeasonRecord(regularSeasonGames),
+    averages:
+      regularSeasonSplit?.averages.box ??
+      averageRegularSeasonBox(regularSeasonGames),
+  };
 }
 
 export async function generateMetadata({
@@ -82,34 +183,36 @@ export default async function PlayerDetailPage({ params }: PlayerPageProps) {
     notFound();
   }
 
-  const averages = playerPage.averages.box;
-  const linkedTeams = getLinkedTeams(playerPage);
+  const regularSeason = getRegularSeasonSummary(playerPage);
+  const linkedTeams = regularSeason.teams;
+  const teamsLabel = linkedTeams.length ? formatTeams(linkedTeams) : "None";
 
   return (
     <main className="mx-auto mt-2 flex w-full max-w-[1235px] flex-col gap-5 pb-10">
       <section className="rounded-[20px] bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)] sm:p-8 lg:p-10">
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_340px]">
           <div className="space-y-5">
-            <div className="space-y-3">
-              <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-muted">
-                Player Page Data
-              </p>
+            <div className="space-y-4">
               <h1 className="text-4xl font-semibold leading-tight tracking-[-0.03em] text-heading sm:text-5xl lg:text-6xl">
                 {playerPage.player.name}
               </h1>
-              <p className="max-w-3xl text-base leading-8 text-copy sm:text-lg">
-                {playerPage.season} player snapshot across {formatTeams(playerPage)},
-                powered by the processed player payload in S3.
-              </p>
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <span className="rounded-full bg-card-alt px-4 py-2 font-medium text-copy">
+                  {playerPage.season} Regular Season
+                </span>
+                <span className="rounded-full bg-card-alt px-4 py-2 font-medium text-copy">
+                  {teamsLabel}
+                </span>
+              </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-[18px] bg-card-alt p-4">
                 <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted">
-                  Games
+                  Regular Games
                 </p>
                 <p className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-heading">
-                  {playerPage.totals.games}
+                  {regularSeason.games}
                 </p>
               </div>
 
@@ -118,7 +221,7 @@ export default async function PlayerDetailPage({ params }: PlayerPageProps) {
                   Points
                 </p>
                 <p className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-heading">
-                  {averages.pts.toFixed(1)}
+                  {formatNullableAverage(regularSeason.averages.pts)}
                 </p>
               </div>
 
@@ -127,7 +230,7 @@ export default async function PlayerDetailPage({ params }: PlayerPageProps) {
                   Rebounds
                 </p>
                 <p className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-heading">
-                  {averages.reb.toFixed(1)}
+                  {formatNullableAverage(regularSeason.averages.reb)}
                 </p>
               </div>
 
@@ -136,7 +239,7 @@ export default async function PlayerDetailPage({ params }: PlayerPageProps) {
                   Assists
                 </p>
                 <p className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-heading">
-                  {averages.ast.toFixed(1)}
+                  {formatNullableAverage(regularSeason.averages.ast)}
                 </p>
               </div>
             </div>
@@ -162,24 +265,26 @@ export default async function PlayerDetailPage({ params }: PlayerPageProps) {
               <div className="flex items-center justify-between gap-4">
                 <dt>Teams</dt>
                 <dd className="font-medium text-foreground">
-                  {formatTeams(playerPage)}
+                  {teamsLabel}
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-4">
-                <dt>Record</dt>
+                <dt>Regular Record</dt>
                 <dd className="font-medium text-foreground">
                   {formatSeasonRecord(
-                    playerPage.totals.wins,
-                    playerPage.totals.losses,
-                    playerPage.totals.ties,
+                    regularSeason.record.wins,
+                    regularSeason.record.losses,
+                    regularSeason.record.ties,
                   )}
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-4">
                 <dt>Plus / Minus</dt>
                 <dd className="font-medium text-foreground">
-                  {averages.pm !== undefined
-                    ? formatSignedNumber(Number(averages.pm.toFixed(1)))
+                  {regularSeason.averages.pm !== undefined
+                    ? formatSignedNumber(
+                        Number(regularSeason.averages.pm.toFixed(1)),
+                      )
                     : "-"}
                 </dd>
               </div>
