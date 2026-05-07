@@ -220,7 +220,11 @@ export default async function TeamDetailPage({ params }: TeamPageProps) {
         </div>
       </section>
 
-      <TeamPageDetails games={allGames} players={players} />
+      <TeamPageDetails
+        games={allGames}
+        players={players}
+        teamAbbr={teamPage.team.abbr}
+      />
     </main>
   );
 }

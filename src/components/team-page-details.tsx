@@ -12,6 +12,7 @@ import {
   SeasonTypeSelector,
   type SeasonTypeSelectorOption,
 } from "@/components/season-type-selector";
+import { getGamePageUrl } from "@/lib/game-url";
 
 const INITIAL_PLAYER_COUNT = 8;
 const PLAYER_PAGE_SIZE = 5;
@@ -492,11 +493,13 @@ function getPlayerRowsForFilter(
 type TeamPageDetailsProps = {
   games: TeamGame[];
   players: TeamPlayerSeason[];
+  teamAbbr: string;
 };
 
 export function TeamPageDetails({
   games,
   players,
+  teamAbbr,
 }: TeamPageDetailsProps) {
   const [visiblePlayers, setVisiblePlayers] = useState(INITIAL_PLAYER_COUNT);
   const [visibleCompletedGames, setVisibleCompletedGames] = useState(
@@ -728,61 +731,81 @@ export function TeamPageDetails({
             </div>
           ) : null}
 
-          {displayedGames.map((game) => (
-            <div
-              key={game.gameId}
-              className="rounded-[18px] bg-card-alt p-4 text-sm text-copy"
-            >
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <span
-                      className={`rounded-full px-3 py-1 font-mono text-[11px] uppercase tracking-[0.18em] ${getResultBadgeClass(game)}`}
-                    >
-                      {getResultBadgeLabel(game)}
-                    </span>
-                    <span className="rounded-full bg-card px-3 py-1 font-mono text-[11px] uppercase tracking-[0.18em] text-muted">
-                      {formatSeasonTypeLabel(game.seasonType)}
-                    </span>
-                    <span className="font-medium text-foreground">
-                      {formatOpponentLabel(game.homeAway, game.opponentAbbr)}
-                    </span>
+          {displayedGames.map((game) => {
+            const gamePageUrl = getGamePageUrl({
+              date: game.date,
+              homeAway: game.homeAway,
+              teamAbbr,
+              opponentAbbr: game.opponentAbbr,
+            });
+
+            return (
+              <div
+                key={game.gameId}
+                className="rounded-[18px] bg-card-alt p-4 text-sm text-copy"
+              >
+                <a
+                  href={gamePageUrl}
+                  className="-m-2 flex flex-col gap-3 rounded-[14px] p-2 transition-colors hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus sm:flex-row sm:items-start sm:justify-between"
+                  aria-label={`Open ${formatGameDate(
+                    game.date,
+                  )} ${formatOpponentLabel(
+                    game.homeAway,
+                    game.opponentAbbr,
+                  )} game page on Minutes Map`}
+                >
+                  <div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span
+                        className={`rounded-full px-3 py-1 font-mono text-[11px] uppercase tracking-[0.18em] ${getResultBadgeClass(game)}`}
+                      >
+                        {getResultBadgeLabel(game)}
+                      </span>
+                      <span className="rounded-full bg-card px-3 py-1 font-mono text-[11px] uppercase tracking-[0.18em] text-muted">
+                        {formatSeasonTypeLabel(game.seasonType)}
+                      </span>
+                      <span className="font-medium text-foreground">
+                        {formatOpponentLabel(game.homeAway, game.opponentAbbr)}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-copy">
+                      {formatGameDate(game.date)}
+                    </p>
                   </div>
-                  <p className="mt-2 text-copy">{formatGameDate(game.date)}</p>
-                </div>
 
-                <div className="text-right">
-                  <p className="text-lg font-semibold tracking-[-0.02em] text-heading">
-                    {getGameScoreLabel(game)}
+                  <div className="text-right">
+                    <p className="text-lg font-semibold tracking-[-0.02em] text-heading">
+                      {getGameScoreLabel(game)}
+                    </p>
+                    <p className="mt-1 text-muted">
+                      {game.opponentName || game.opponentAbbr}
+                    </p>
+                  </div>
+                </a>
+
+                <div className="mt-4 grid gap-2 text-xs text-muted sm:grid-cols-3">
+                  <p>
+                    PTS:{" "}
+                    <span className="font-medium text-copy">
+                      {formatLeaderLabel(game.leaders.pts)}
+                    </span>
                   </p>
-                  <p className="mt-1 text-muted">
-                    {game.opponentName || game.opponentAbbr}
+                  <p>
+                    REB:{" "}
+                    <span className="font-medium text-copy">
+                      {formatLeaderLabel(game.leaders.reb)}
+                    </span>
+                  </p>
+                  <p>
+                    AST:{" "}
+                    <span className="font-medium text-copy">
+                      {formatLeaderLabel(game.leaders.ast)}
+                    </span>
                   </p>
                 </div>
               </div>
-
-              <div className="mt-4 grid gap-2 text-xs text-muted sm:grid-cols-3">
-                <p>
-                  PTS:{" "}
-                  <span className="font-medium text-copy">
-                    {formatLeaderLabel(game.leaders.pts)}
-                  </span>
-                </p>
-                <p>
-                  REB:{" "}
-                  <span className="font-medium text-copy">
-                    {formatLeaderLabel(game.leaders.reb)}
-                  </span>
-                </p>
-                <p>
-                  AST:{" "}
-                  <span className="font-medium text-copy">
-                    {formatLeaderLabel(game.leaders.ast)}
-                  </span>
-                </p>
-              </div>
-            </div>
-          ))}
+            );
+          })}
 
           {hasMoreCompletedGames ? (
             <div className="mt-5 flex justify-center">

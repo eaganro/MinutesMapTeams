@@ -11,6 +11,7 @@ import {
   PlayerGameTimeline,
   PLAYER_TIMELINE_STAT_COUNT,
 } from "@/components/player-game-timeline";
+import { getGamePageUrl } from "@/lib/game-url";
 
 const INITIAL_GAME_COUNT = 5;
 const GAME_PAGE_SIZE = 5;
@@ -174,59 +175,79 @@ export function PlayerPageDetails({ playerPage }: PlayerPageDetailsProps) {
         </div>
 
         <div className="mt-6 space-y-3">
-          {displayedGames.map((game) => (
-            <div
-              key={game.gameId}
-              className="rounded-[18px] bg-card-alt p-4 text-sm text-copy"
-            >
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <span
-                      className={`rounded-full px-3 py-1 font-mono text-[11px] uppercase tracking-[0.18em] ${
-                        game.result === "W"
-                          ? "bg-[#dff3e4] text-[#166534] dark:bg-[#193126] dark:text-[#86efac]"
-                          : "bg-[#f7e0e0] text-[#991b1b] dark:bg-[#341c1c] dark:text-[#fca5a5]"
-                      }`}
-                    >
-                      {game.result}
-                    </span>
-                    <span className="rounded-full bg-card px-3 py-1 font-mono text-[11px] uppercase tracking-[0.18em] text-muted">
-                      {formatSeasonTypeLabel(game.seasonType)}
-                    </span>
-                    <span className="font-medium text-foreground">
-                      {game.teamAbbr}{" "}
-                      {formatOpponentLabel(game.homeAway, game.opponentAbbr)}
-                    </span>
+          {displayedGames.map((game) => {
+            const gamePageUrl = getGamePageUrl({
+              date: game.date,
+              homeAway: game.homeAway,
+              teamAbbr: game.teamAbbr,
+              opponentAbbr: game.opponentAbbr,
+            });
+
+            return (
+              <div
+                key={game.gameId}
+                className="rounded-[18px] bg-card-alt p-4 text-sm text-copy"
+              >
+                <a
+                  href={gamePageUrl}
+                  className="-m-2 flex flex-col gap-3 rounded-[14px] p-2 transition-colors hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus sm:flex-row sm:items-start sm:justify-between"
+                  aria-label={`Open ${formatGameDate(
+                    game.date,
+                  )} ${game.teamAbbr} ${formatOpponentLabel(
+                    game.homeAway,
+                    game.opponentAbbr,
+                  )} game page on Minutes Map`}
+                >
+                  <div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span
+                        className={`rounded-full px-3 py-1 font-mono text-[11px] uppercase tracking-[0.18em] ${
+                          game.result === "W"
+                            ? "bg-[#dff3e4] text-[#166534] dark:bg-[#193126] dark:text-[#86efac]"
+                            : "bg-[#f7e0e0] text-[#991b1b] dark:bg-[#341c1c] dark:text-[#fca5a5]"
+                        }`}
+                      >
+                        {game.result}
+                      </span>
+                      <span className="rounded-full bg-card px-3 py-1 font-mono text-[11px] uppercase tracking-[0.18em] text-muted">
+                        {formatSeasonTypeLabel(game.seasonType)}
+                      </span>
+                      <span className="font-medium text-foreground">
+                        {game.teamAbbr}{" "}
+                        {formatOpponentLabel(game.homeAway, game.opponentAbbr)}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-copy">
+                      {formatGameDate(game.date)}
+                    </p>
                   </div>
-                  <p className="mt-2 text-copy">{formatGameDate(game.date)}</p>
-                </div>
 
-                <div className="text-right">
-                  <p className="text-lg font-semibold tracking-[-0.02em] text-heading">
-                    {game.box.pts} PTS, {game.box.reb} REB, {game.box.ast} AST
-                  </p>
-                  <p className="mt-1 text-muted">
-                    {game.teamScore} - {game.oppScore} {game.opponentName}
-                  </p>
-                </div>
+                  <div className="text-right">
+                    <p className="text-lg font-semibold tracking-[-0.02em] text-heading">
+                      {game.box.pts} PTS, {game.box.reb} REB, {game.box.ast} AST
+                    </p>
+                    <p className="mt-1 text-muted">
+                      {game.teamScore} - {game.oppScore} {game.opponentName}
+                    </p>
+                  </div>
+                </a>
+
+                <PlayerGameBoxscore
+                  playerName={playerPage.player.name}
+                  box={game.box}
+                />
+
+                <PlayerGameTimeline
+                  actions={game.detail?.actions}
+                  segments={game.detail?.segments}
+                  nbaGameId={game.nbaGameId}
+                  season={game.season}
+                  statOn={timelineStatOn}
+                  onToggleStat={toggleTimelineStat}
+                />
               </div>
-
-              <PlayerGameBoxscore
-                playerName={playerPage.player.name}
-                box={game.box}
-              />
-
-              <PlayerGameTimeline
-                actions={game.detail?.actions}
-                segments={game.detail?.segments}
-                nbaGameId={game.nbaGameId}
-                season={game.season}
-                statOn={timelineStatOn}
-                onToggleStat={toggleTimelineStat}
-              />
-            </div>
-          ))}
+            );
+          })}
 
           {hasMoreGames ? (
             <div className="mt-5 flex justify-center">
