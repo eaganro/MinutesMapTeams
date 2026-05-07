@@ -50,8 +50,8 @@ export type PlayerGameAction = {
   description?: string;
   detail?: string;
   subType?: string;
-  seq?: number;
-  actionNumber?: number;
+  seq?: string | number;
+  actionNumber?: string | number;
   r?: string;
   result?: string;
   awayScore?: string | number;

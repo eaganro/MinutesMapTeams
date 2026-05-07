@@ -30,7 +30,7 @@ type NormalizedAction = {
   actionType: string;
   description: string;
   subType: string;
-  actionNumber: number | null;
+  actionNumber: string | number | null;
   result: string;
 };
 
@@ -192,7 +192,7 @@ function formatClock(clock: string) {
 function normalizeAction(action: PlayerGameAction): NormalizedAction | null {
   const period = Number(action.quarter ?? action.period);
   const clock = action.time ?? action.clock;
-  const actionNumber = Number(action.seq ?? action.actionNumber);
+  const rawActionNumber = action.seq ?? action.actionNumber;
 
   if (!Number.isFinite(period) || period <= 0 || !clock) {
     return null;
@@ -204,7 +204,10 @@ function normalizeAction(action: PlayerGameAction): NormalizedAction | null {
     actionType: String(action.type ?? action.actionType ?? ""),
     description: String(action.text ?? action.description ?? ""),
     subType: String(action.detail ?? action.subType ?? ""),
-    actionNumber: Number.isFinite(actionNumber) ? actionNumber : null,
+    actionNumber:
+      rawActionNumber !== undefined && rawActionNumber !== null
+        ? rawActionNumber
+        : null,
     result: String(action.r ?? action.result ?? ""),
   };
 }
@@ -376,7 +379,7 @@ function isActionEnabled(action: NormalizedAction, statOn?: boolean[]) {
   return statIndex === null || isStatEnabled(statOn, statIndex);
 }
 
-function normalizeEventId(actionNumber: number | null) {
+function normalizeEventId(actionNumber: string | number | null) {
   if (actionNumber === null) {
     return null;
   }
@@ -411,7 +414,7 @@ function buildNbaEventUrl({
   season,
 }: {
   gameId?: string;
-  actionNumber: number | null;
+  actionNumber: string | number | null;
   description?: string;
   season?: string;
 }) {
