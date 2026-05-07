@@ -200,9 +200,15 @@ export default async function PlayerDetailPage({ params }: PlayerPageProps) {
                 <span className="rounded-full bg-card-alt px-4 py-2 font-medium text-copy">
                   {playerPage.season} Regular Season
                 </span>
-                <span className="rounded-full bg-card-alt px-4 py-2 font-medium text-copy">
-                  {teamsLabel}
-                </span>
+                {linkedTeams.map((team) => (
+                  <Link
+                    key={team.id}
+                    href={`/teams/${team.abbr}`}
+                    className="rounded-full border border-border-strong bg-card-alt px-4 py-2 font-medium text-copy transition-colors hover:bg-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                  >
+                    {team.abbr}
+                  </Link>
+                ))}
               </div>
             </div>
 
@@ -300,38 +306,6 @@ export default async function PlayerDetailPage({ params }: PlayerPageProps) {
           </div>
         </div>
       </section>
-
-      {linkedTeams.length ? (
-        <section className="rounded-[20px] bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)]">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-muted">
-                Navigation
-              </p>
-              <h2 className="mt-3 text-2xl font-semibold tracking-[-0.02em] text-heading">
-                Related team pages
-              </h2>
-            </div>
-            <Link
-              href="/teams"
-              className="rounded-full border border-border-strong bg-card-alt px-4 py-2 text-sm text-copy transition-colors hover:bg-hover hover:text-foreground"
-            >
-              All Teams
-            </Link>
-          </div>
-          <div className="mt-5 flex flex-wrap gap-2">
-            {linkedTeams.map((team) => (
-              <Link
-                key={team.id}
-                href={`/teams/${team.abbr}`}
-                className="rounded-full border border-border-strong bg-card-alt px-4 py-2 text-sm font-medium text-copy transition-colors hover:bg-hover hover:text-foreground"
-              >
-                {team.name}
-              </Link>
-            ))}
-          </div>
-        </section>
-      ) : null}
 
       <PlayerPageDetails playerPage={playerPage} />
     </main>
