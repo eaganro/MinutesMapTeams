@@ -388,6 +388,16 @@ function normalizeEventId(actionNumber: string | number | null) {
   return match ? match[0] : null;
 }
 
+function getPreviousEventActionNumber(actionNumber: string | number | null) {
+  const eventId = normalizeEventId(actionNumber);
+  if (!eventId) {
+    return null;
+  }
+
+  const previousEventId = Number.parseInt(eventId, 10) - 1;
+  return previousEventId > 0 ? previousEventId : null;
+}
+
 function getSeasonLabelFromGameId(gameId?: string) {
   if (!gameId) {
     return null;
@@ -478,6 +488,14 @@ function resolveVideoAction(
     );
     if (turnoverAction) {
       return turnoverAction;
+    }
+
+    const previousActionNumber = getPreviousEventActionNumber(action.actionNumber);
+    if (previousActionNumber !== null) {
+      return {
+        ...action,
+        actionNumber: previousActionNumber,
+      };
     }
   }
 
