@@ -748,6 +748,7 @@ export function TeamPageDetails({
 
   useEffect(() => {
     let cancelled = false;
+    let intervalId: number | undefined;
 
     async function loadTeamStatus() {
       try {
@@ -760,26 +761,50 @@ export function TeamPageDetails({
           if (!cancelled) {
             setTeamStatus(null);
           }
-          return;
+          return null;
         }
 
         const nextStatus = (await response.json()) as TeamStatus;
         if (!cancelled) {
           setTeamStatus(nextStatus);
         }
+        return nextStatus;
       } catch {
         if (!cancelled) {
           setTeamStatus(null);
         }
+        return null;
       }
     }
 
-    loadTeamStatus();
-    const intervalId = window.setInterval(loadTeamStatus, 30_000);
+    async function loadInitialTeamStatus() {
+      const nextStatus = await loadTeamStatus();
+      if (
+        cancelled ||
+        !nextStatus?.currentGame ||
+        !isLiveGame(nextStatus.currentGame)
+      ) {
+        return;
+      }
+
+      intervalId = window.setInterval(async () => {
+        const latestStatus = await loadTeamStatus();
+        if (
+          !latestStatus?.currentGame ||
+          !isLiveGame(latestStatus.currentGame)
+        ) {
+          window.clearInterval(intervalId);
+        }
+      }, 30_000);
+    }
+
+    loadInitialTeamStatus();
 
     return () => {
       cancelled = true;
-      window.clearInterval(intervalId);
+      if (intervalId) {
+        window.clearInterval(intervalId);
+      }
     };
   }, [teamAbbr]);
 

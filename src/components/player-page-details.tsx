@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type {
   PlayerGame,
   PlayerGameAction,
@@ -481,31 +481,47 @@ export function PlayerPageDetails({ playerPage }: PlayerPageDetailsProps) {
   const [teamStatuses, setTeamStatuses] = useState<Record<string, TeamStatus>>(
     {},
   );
+  const [activeLiveTeamAbbr, setActiveLiveTeamAbbr] = useState<string | null>(
+    null,
+  );
   const [liveGamepacks, setLiveGamepacks] = useState<
     Record<string, LiveGamepack>
   >({});
-  const teamAbbrs = getPlayerTeamAbbrs(playerPage);
+  const teamAbbrs = useMemo(() => getPlayerTeamAbbrs(playerPage), [playerPage]);
   const teamStatusFetchKey = teamAbbrs.join("|");
-  const liveStatusGames = Object.values(teamStatuses)
-    .map((teamStatus) => teamStatus.currentGame)
-    .filter(
-      (game): game is TeamGame =>
-        game !== null && game !== undefined && isLiveTeamGame(game),
-    );
+  const liveStatusGames = useMemo(
+    () =>
+      Object.entries(teamStatuses)
+        .filter(
+          ([teamAbbr]) =>
+            !activeLiveTeamAbbr || teamAbbr === activeLiveTeamAbbr,
+        )
+        .map(
+          ([, teamStatus]) => teamStatus.currentGame,
+        )
+        .filter(
+          (game): game is TeamGame =>
+            game !== null && game !== undefined && isLiveTeamGame(game),
+        ),
+    [activeLiveTeamAbbr, teamStatuses],
+  );
   const liveGameIds = [
     ...new Set(liveStatusGames.map((game) => game.gameId).filter(Boolean)),
   ];
   const liveGameFetchKey = liveGameIds.join("|");
 
   useEffect(() => {
-    const currentTeamAbbrs = teamStatusFetchKey
-      ? teamStatusFetchKey.split("|")
-      : [];
+    const currentTeamAbbrs = activeLiveTeamAbbr
+      ? [activeLiveTeamAbbr]
+      : teamStatusFetchKey
+        ? teamStatusFetchKey.split("|")
+        : [];
     if (!currentTeamAbbrs.length) {
       return;
     }
 
     let cancelled = false;
+    let intervalId: number | undefined;
 
     async function loadTeamStatuses() {
       const entries = await Promise.all(
@@ -526,22 +542,58 @@ export function PlayerPageDetails({ playerPage }: PlayerPageDetailsProps) {
           }
         }),
       );
+      const nextStatuses = Object.fromEntries(
+        entries.filter((entry) => entry !== null),
+      );
 
       if (!cancelled) {
-        setTeamStatuses(
-          Object.fromEntries(entries.filter((entry) => entry !== null)),
-        );
+        setTeamStatuses(nextStatuses);
       }
+
+      return nextStatuses;
     }
 
-    loadTeamStatuses();
-    const intervalId = window.setInterval(loadTeamStatuses, 30_000);
+    async function loadInitialTeamStatuses() {
+      const nextStatuses = await loadTeamStatuses();
+      if (cancelled || !nextStatuses) {
+        return;
+      }
+
+      const liveTeamAbbrs = Object.entries(nextStatuses)
+        .filter(([, teamStatus]) => {
+          const game = teamStatus.currentGame;
+          return game !== null && game !== undefined && isLiveTeamGame(game);
+        })
+        .map(([teamAbbr]) => teamAbbr);
+
+      if (!liveTeamAbbrs.length) {
+        return;
+      }
+
+      intervalId = window.setInterval(async () => {
+        const latestStatuses = await loadTeamStatuses();
+        const stillLive = Object.values(latestStatuses ?? {}).some(
+          (teamStatus) => {
+            const game = teamStatus.currentGame;
+            return game !== null && game !== undefined && isLiveTeamGame(game);
+          },
+        );
+
+        if (!stillLive && intervalId) {
+          window.clearInterval(intervalId);
+        }
+      }, 30_000);
+    }
+
+    loadInitialTeamStatuses();
 
     return () => {
       cancelled = true;
-      window.clearInterval(intervalId);
+      if (intervalId) {
+        window.clearInterval(intervalId);
+      }
     };
-  }, [teamStatusFetchKey]);
+  }, [activeLiveTeamAbbr, teamStatusFetchKey]);
 
   useEffect(() => {
     const gameIds = liveGameFetchKey ? liveGameFetchKey.split("|") : [];
@@ -572,9 +624,26 @@ export function PlayerPageDetails({ playerPage }: PlayerPageDetailsProps) {
       );
 
       if (!cancelled) {
-        setLiveGamepacks(
-          Object.fromEntries(entries.filter((entry) => entry !== null)),
+        const nextGamepacks = Object.fromEntries(
+          entries.filter((entry) => entry !== null),
         );
+        setLiveGamepacks(nextGamepacks);
+
+        if (!activeLiveTeamAbbr) {
+          const activeLiveGame = liveStatusGames
+            .map((statusGame) =>
+              buildLivePlayerGame(
+                playerPage,
+                statusGame,
+                nextGamepacks[statusGame.gameId],
+              ),
+            )
+            .find((game) => game !== null);
+
+          if (activeLiveGame) {
+            setActiveLiveTeamAbbr(activeLiveGame.teamAbbr);
+          }
+        }
       }
     }
 
@@ -585,7 +654,7 @@ export function PlayerPageDetails({ playerPage }: PlayerPageDetailsProps) {
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [liveGameFetchKey]);
+  }, [activeLiveTeamAbbr, liveGameFetchKey, liveStatusGames, playerPage]);
 
   const livePlayerGames = liveStatusGames.flatMap((statusGame) => {
     const liveGame = buildLivePlayerGame(
@@ -596,6 +665,7 @@ export function PlayerPageDetails({ playerPage }: PlayerPageDetailsProps) {
 
     return liveGame ? [liveGame] : [];
   });
+
   const games = upsertLivePlayerGames(playerPage.games, livePlayerGames);
   const options = getSeasonTypeOptions(games);
   const filteredGames = getGamesForFilter(games, selectedFilter);
