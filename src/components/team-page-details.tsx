@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type {
   StatLine,
   TeamGame,
@@ -38,6 +38,34 @@ type PlayerTableRow = {
 };
 type PlayerSortKey = "name" | "games" | "min" | "pts" | "reb" | "ast" | "pm";
 type SortDirection = "asc" | "desc";
+type LiveGamepack = {
+  box?: {
+    teams?: {
+      away?: LiveTeam;
+      home?: LiveTeam;
+    };
+  };
+  flow?: {
+    last?: {
+      quarter?: number;
+      time?: string;
+      awayScore?: number | string;
+      homeScore?: number | string;
+    };
+  };
+};
+type LiveTeam = {
+  id?: number | string | null;
+  abbr?: string | null;
+  name?: string | null;
+  players?: LivePlayer[];
+};
+type LivePlayer = {
+  id?: number | string | null;
+  first?: string | null;
+  last?: string | null;
+  stats?: Partial<Record<StatNumberKey | "min", number | string | null>>;
+};
 type StatNumberKey =
   | "pts"
   | "fgm"
@@ -125,6 +153,15 @@ function parseMinutesToSeconds(value?: string) {
   return minutes * 60 + seconds;
 }
 
+function toNumber(value: number | string | null | undefined) {
+  if (value === null || value === undefined || value === "") {
+    return 0;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function formatSeasonTypeLabel(seasonType: string) {
   return (
     SEASON_TYPE_LABELS[seasonType] ??
@@ -138,6 +175,26 @@ function formatSeasonTypeLabel(seasonType: string) {
 
 function isCompletedGame(game: TeamGame) {
   return game.played !== false && game.result !== null;
+}
+
+function isPregameStatus(status?: string) {
+  const normalized = (status ?? "").trim().toLowerCase();
+
+  return (
+    !normalized ||
+    normalized.startsWith("scheduled") ||
+    normalized.startsWith("pre") ||
+    normalized.includes("tbd") ||
+    /\b(?:am|pm|et)\b/.test(normalized)
+  );
+}
+
+function isLiveGame(game: TeamGame) {
+  return (
+    !isCompletedGame(game) &&
+    Boolean(game.gamepackKey) &&
+    !isPregameStatus(game.status)
+  );
 }
 
 function getGameDateTime(game: TeamGame) {
@@ -159,6 +216,10 @@ function sortUpcomingGames(games: TeamGame[]) {
 }
 
 function getResultBadgeClass(game: TeamGame) {
+  if (isLiveGame(game)) {
+    return "bg-[#fff3bf] text-[#92400e] dark:bg-[#3a2f14] dark:text-[#fde68a]";
+  }
+
   if (!isCompletedGame(game)) {
     return "bg-card text-muted";
   }
@@ -175,17 +236,149 @@ function getResultBadgeClass(game: TeamGame) {
 }
 
 function getResultBadgeLabel(game: TeamGame) {
-  return isCompletedGame(game) ? (game.result ?? "Scheduled") : "Scheduled";
+  return isCompletedGame(game) ? (game.result ?? "Scheduled") : (game.status ?? "Scheduled");
 }
 
 function getGameScoreLabel(game: TeamGame) {
-  return isCompletedGame(game)
-    ? `${game.teamScore} - ${game.oppScore}`
-    : (game.status ?? "Scheduled");
+  if (isCompletedGame(game) || isLiveGame(game)) {
+    return `${game.teamScore} - ${game.oppScore}`;
+  }
+
+  return game.status ?? "Scheduled";
 }
 
 function formatLeaderLabel(leader?: { name: string; value: number }) {
   return leader ? `${leader.name} (${leader.value})` : "—";
+}
+
+function getLivePlayerName(player: LivePlayer) {
+  const first = String(player.first ?? "").trim();
+  const last = String(player.last ?? "").trim();
+  return `${first} ${last}`.trim();
+}
+
+function buildLivePlayerBox(player: LivePlayer): StatLine {
+  const stats = player.stats ?? {};
+  const min = String(stats.min ?? "00:00");
+  const box = createEmptyStatLine();
+
+  box.min = min;
+  box.seconds = parseMinutesToSeconds(min);
+
+  for (const key of STAT_NUMBER_KEYS) {
+    box[key] = toNumber(stats[key]);
+  }
+
+  return box;
+}
+
+function getLiveTeamPlayers(team?: LiveTeam) {
+  return (team?.players ?? []).flatMap((player) => {
+    const name = getLivePlayerName(player);
+    const playerId = toNumber(player.id);
+
+    if (!name && !playerId) {
+      return [];
+    }
+
+    return [
+      {
+        playerId,
+        name,
+        box: buildLivePlayerBox(player),
+      },
+    ];
+  });
+}
+
+function aggregateLiveTeamStats(players: TeamGame["players"]) {
+  const totals = createEmptyStatLine();
+
+  for (const player of players) {
+    addBoxScore(totals, player.box);
+  }
+
+  totals.min = formatSecondsAsMinutes(totals.seconds ?? 0);
+  return totals;
+}
+
+function getLiveScore(gamepack: LiveGamepack | undefined, side: "home" | "away") {
+  const last = gamepack?.flow?.last;
+  const value = side === "home" ? last?.homeScore : last?.awayScore;
+
+  return toNumber(value);
+}
+
+function getLiveStatus(game: TeamGame, gamepack: LiveGamepack | undefined) {
+  const last = gamepack?.flow?.last;
+  const quarter = toNumber(last?.quarter);
+  const time = String(last?.time ?? "").trim();
+
+  if (quarter > 0 && time) {
+    return `Q${quarter} ${time}`;
+  }
+
+  return game.status;
+}
+
+function applyLiveGamepack(
+  game: TeamGame,
+  gamepack: LiveGamepack | undefined,
+  teamAbbr: string,
+): TeamGame {
+  const teams = gamepack?.box?.teams;
+  if (!teams?.away && !teams?.home) {
+    return game;
+  }
+
+  const homeAbbr = String(teams.home?.abbr ?? "").toUpperCase();
+  const awayAbbr = String(teams.away?.abbr ?? "").toUpperCase();
+  const normalizedTeamAbbr = teamAbbr.toUpperCase();
+  const side =
+    normalizedTeamAbbr === homeAbbr
+      ? "home"
+      : normalizedTeamAbbr === awayAbbr
+        ? "away"
+        : game.homeAway;
+  const team = side === "home" ? teams.home : teams.away;
+  const opponent = side === "home" ? teams.away : teams.home;
+  const players = getLiveTeamPlayers(team);
+  const teamScore = getLiveScore(gamepack, side);
+  const oppScore = getLiveScore(gamepack, side === "home" ? "away" : "home");
+
+  return {
+    ...game,
+    status: getLiveStatus(game, gamepack),
+    teamScore,
+    oppScore,
+    teamStats: aggregateLiveTeamStats(players),
+    leaders: {
+      pts: players.length ? _pickLiveLeader(players, "pts") : game.leaders.pts,
+      reb: players.length ? _pickLiveLeader(players, "reb") : game.leaders.reb,
+      ast: players.length ? _pickLiveLeader(players, "ast") : game.leaders.ast,
+    },
+    players,
+    playerCount: players.length,
+    opponentId: toNumber(opponent?.id) || game.opponentId,
+    opponentAbbr: String(opponent?.abbr ?? game.opponentAbbr),
+    opponentName: String(opponent?.name ?? game.opponentName),
+  };
+}
+
+function _pickLiveLeader(
+  players: TeamGame["players"],
+  statKey: "pts" | "reb" | "ast",
+) {
+  return players.reduce(
+    (leader, player) => {
+      const value = player.box[statKey] ?? 0;
+
+      return value > leader.value
+        ? { id: player.playerId, name: player.name, value }
+        : leader;
+    },
+    { id: 0, name: "", value: 0 },
+  );
 }
 
 function getSeasonTypeCounts(games: TeamGame[]) {
@@ -515,6 +708,59 @@ export function TeamPageDetails({
   const [playerSortKey, setPlayerSortKey] = useState<PlayerSortKey>("min");
   const [playerSortDirection, setPlayerSortDirection] =
     useState<SortDirection>("desc");
+  const liveGameIds = games
+    .filter((game) => isLiveGame(game))
+    .map((game) => game.gameId);
+  const liveGameFetchKey = liveGameIds.join("|");
+  const [liveGamepacks, setLiveGamepacks] = useState<
+    Record<string, LiveGamepack>
+  >({});
+
+  useEffect(() => {
+    const gameIds = liveGameFetchKey ? liveGameFetchKey.split("|") : [];
+    if (!gameIds.length) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadLiveGames() {
+      const entries = await Promise.all(
+        gameIds.map(async (gameId) => {
+          try {
+            const response = await fetch(
+              `/api/live-games/${encodeURIComponent(gameId)}`,
+              { cache: "no-store" },
+            );
+
+            if (!response.ok) {
+              return null;
+            }
+
+            return [gameId, (await response.json()) as LiveGamepack] as const;
+          } catch {
+            return null;
+          }
+        }),
+      );
+
+      if (cancelled) {
+        return;
+      }
+
+      setLiveGamepacks(
+        Object.fromEntries(entries.filter((entry) => entry !== null)),
+      );
+    }
+
+    loadLiveGames();
+    const intervalId = window.setInterval(loadLiveGames, 30_000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [liveGameFetchKey]);
 
   const seasonTypeOptions = getSeasonTypeOptions(games);
   const playerSeasonTypeOptions = getPlayerSeasonTypeOptions(
@@ -534,10 +780,15 @@ export function TeamPageDetails({
   );
   const displayedPlayers = sortedPlayers.slice(0, visiblePlayers);
   const hasMorePlayers = visiblePlayers < sortedPlayers.length;
+  const displayGames = games.map((game) =>
+    isLiveGame(game)
+      ? applyLiveGamepack(game, liveGamepacks[game.gameId], teamAbbr)
+      : game,
+  );
   const filteredGames =
     selectedGameFilter === "all"
-      ? games
-      : games.filter((game) => isGameInFilter(game, selectedGameFilter));
+      ? displayGames
+      : displayGames.filter((game) => isGameInFilter(game, selectedGameFilter));
   const upcomingGames = sortUpcomingGames(
     filteredGames.filter((game) => !isCompletedGame(game)),
   );
