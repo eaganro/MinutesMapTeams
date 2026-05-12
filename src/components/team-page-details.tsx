@@ -54,6 +54,9 @@ type LiveGamepack = {
     };
   };
 };
+type TeamStatus = {
+  currentGame?: TeamGame | null;
+};
 type LiveTeam = {
   id?: number | string | null;
   abbr?: string | null;
@@ -379,6 +382,24 @@ function _pickLiveLeader(
     },
     { id: 0, name: "", value: 0 },
   );
+}
+
+function upsertStatusGame(games: TeamGame[], statusGame: TeamGame | null) {
+  if (!statusGame) {
+    return games;
+  }
+
+  let replaced = false;
+  const nextGames = games.map((game) => {
+    if (game.gameId !== statusGame.gameId) {
+      return game;
+    }
+
+    replaced = true;
+    return { ...game, ...statusGame };
+  });
+
+  return replaced ? nextGames : [statusGame, ...nextGames];
 }
 
 function getSeasonTypeCounts(games: TeamGame[]) {
@@ -708,13 +729,59 @@ export function TeamPageDetails({
   const [playerSortKey, setPlayerSortKey] = useState<PlayerSortKey>("min");
   const [playerSortDirection, setPlayerSortDirection] =
     useState<SortDirection>("desc");
-  const liveGameIds = games
-    .filter((game) => isLiveGame(game))
-    .map((game) => game.gameId);
+  const [teamStatus, setTeamStatus] = useState<TeamStatus | null>(null);
+  const liveStatusGame =
+    teamStatus?.currentGame && isLiveGame(teamStatus.currentGame)
+      ? teamStatus.currentGame
+      : null;
+  const liveStatusGameId = liveStatusGame?.gameId ?? "";
+  const liveGameIds = [
+    ...new Set([
+      liveStatusGameId,
+      ...games.filter((game) => isLiveGame(game)).map((game) => game.gameId),
+    ]),
+  ].filter(Boolean);
   const liveGameFetchKey = liveGameIds.join("|");
   const [liveGamepacks, setLiveGamepacks] = useState<
     Record<string, LiveGamepack>
   >({});
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadTeamStatus() {
+      try {
+        const response = await fetch(
+          `/api/team-status/${encodeURIComponent(teamAbbr)}`,
+          { cache: "no-store" },
+        );
+
+        if (!response.ok) {
+          if (!cancelled) {
+            setTeamStatus(null);
+          }
+          return;
+        }
+
+        const nextStatus = (await response.json()) as TeamStatus;
+        if (!cancelled) {
+          setTeamStatus(nextStatus);
+        }
+      } catch {
+        if (!cancelled) {
+          setTeamStatus(null);
+        }
+      }
+    }
+
+    loadTeamStatus();
+    const intervalId = window.setInterval(loadTeamStatus, 30_000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [teamAbbr]);
 
   useEffect(() => {
     const gameIds = liveGameFetchKey ? liveGameFetchKey.split("|") : [];
@@ -762,7 +829,8 @@ export function TeamPageDetails({
     };
   }, [liveGameFetchKey]);
 
-  const seasonTypeOptions = getSeasonTypeOptions(games);
+  const gamesWithStatus = upsertStatusGame(games, liveStatusGame);
+  const seasonTypeOptions = getSeasonTypeOptions(gamesWithStatus);
   const playerSeasonTypeOptions = getPlayerSeasonTypeOptions(
     players,
     games,
@@ -780,7 +848,7 @@ export function TeamPageDetails({
   );
   const displayedPlayers = sortedPlayers.slice(0, visiblePlayers);
   const hasMorePlayers = visiblePlayers < sortedPlayers.length;
-  const displayGames = games.map((game) =>
+  const displayGames = gamesWithStatus.map((game) =>
     isLiveGame(game)
       ? applyLiveGamepack(game, liveGamepacks[game.gameId], teamAbbr)
       : game,
