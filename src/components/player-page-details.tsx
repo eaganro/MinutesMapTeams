@@ -1,7 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import type { PlayerGame, PlayerPageData } from "@/lib/player-data";
+import { useEffect, useState } from "react";
+import type {
+  PlayerGame,
+  PlayerGameAction,
+  PlayerGameSegment,
+  PlayerPageData,
+} from "@/lib/player-data";
+import type { StatLine, TeamGame } from "@/lib/team-data";
 import {
   SeasonTypeSelector,
   type SeasonTypeSelectorOption,
@@ -23,6 +29,88 @@ const SEASON_TYPE_LABELS: Record<string, string> = {
 };
 
 type PlayerFilter = "all" | "regular" | "playoffs" | "other";
+type DisplayPlayerGame = Omit<PlayerGame, "gamepackKey" | "result"> & {
+  gamepackKey: string | null;
+  played?: boolean;
+  result: PlayerGame["result"] | null;
+  status?: string;
+};
+type TeamStatus = {
+  currentGame?: TeamGame | null;
+};
+type LiveGamepack = {
+  box?: {
+    start?: string | null;
+    teams?: {
+      away?: LiveTeam;
+      home?: LiveTeam;
+    };
+  };
+  flow?: {
+    last?: {
+      quarter?: number | string | null;
+      time?: string | null;
+      awayScore?: number | string | null;
+      homeScore?: number | string | null;
+    };
+    players?: {
+      away?: Record<string, PlayerGameAction[]>;
+      home?: Record<string, PlayerGameAction[]>;
+    };
+    segments?: {
+      away?: Record<string, PlayerGameSegment[]>;
+      home?: Record<string, PlayerGameSegment[]>;
+    };
+  };
+};
+type LiveTeam = {
+  id?: number | string | null;
+  abbr?: string | null;
+  name?: string | null;
+  players?: LivePlayer[];
+};
+type LivePlayer = {
+  id?: number | string | null;
+  first?: string | null;
+  last?: string | null;
+  stats?: Partial<Record<StatNumberKey | "min", number | string | null>>;
+};
+type StatNumberKey =
+  | "pts"
+  | "fgm"
+  | "fga"
+  | "tpm"
+  | "tpa"
+  | "ftm"
+  | "fta"
+  | "oreb"
+  | "dreb"
+  | "reb"
+  | "ast"
+  | "stl"
+  | "blk"
+  | "to"
+  | "pf"
+  | "pm";
+
+const STAT_NUMBER_KEYS: StatNumberKey[] = [
+  "pts",
+  "fgm",
+  "fga",
+  "tpm",
+  "tpa",
+  "ftm",
+  "fta",
+  "oreb",
+  "dreb",
+  "reb",
+  "ast",
+  "stl",
+  "blk",
+  "to",
+  "pf",
+  "pm",
+];
 
 function formatOpponentLabel(homeAway: "home" | "away", opponentAbbr: string) {
   return homeAway === "home" ? `vs ${opponentAbbr}` : `@ ${opponentAbbr}`;
@@ -47,7 +135,262 @@ function formatSeasonTypeLabel(seasonType: string) {
   );
 }
 
-function getSeasonTypeCounts(games: PlayerGame[]) {
+function isPregameStatus(status?: string) {
+  const normalized = (status ?? "").trim().toLowerCase();
+
+  return (
+    !normalized ||
+    normalized.startsWith("scheduled") ||
+    normalized.startsWith("pre") ||
+    normalized.includes("tbd") ||
+    /\b(?:am|pm|et)\b/.test(normalized)
+  );
+}
+
+function isLiveTeamGame(game: TeamGame) {
+  return (
+    game.played === false &&
+    game.result === null &&
+    Boolean(game.gamepackKey) &&
+    !isPregameStatus(game.status)
+  );
+}
+
+function isLivePlayerGame(game: DisplayPlayerGame) {
+  return game.played === false && game.result === null;
+}
+
+function getResultBadgeClass(game: DisplayPlayerGame) {
+  if (isLivePlayerGame(game)) {
+    return "bg-[#fff3bf] text-[#92400e] dark:bg-[#3a2f14] dark:text-[#fde68a]";
+  }
+
+  return game.result === "W"
+    ? "bg-[#dff3e4] text-[#166534] dark:bg-[#193126] dark:text-[#86efac]"
+    : "bg-[#f7e0e0] text-[#991b1b] dark:bg-[#341c1c] dark:text-[#fca5a5]";
+}
+
+function getResultBadgeLabel(game: DisplayPlayerGame) {
+  return isLivePlayerGame(game) ? (game.status ?? "Live") : game.result;
+}
+
+function toNumber(value: number | string | null | undefined) {
+  if (value === null || value === undefined || value === "") {
+    return 0;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function parseMinutesToSeconds(value?: string) {
+  if (!value) {
+    return 0;
+  }
+
+  const [minutes, seconds] = value.split(":").map(Number);
+
+  if (!Number.isFinite(minutes) || !Number.isFinite(seconds)) {
+    return 0;
+  }
+
+  return minutes * 60 + seconds;
+}
+
+function createEmptyStatLine(): StatLine {
+  return {
+    min: "0:00",
+    pts: 0,
+    fgm: 0,
+    fga: 0,
+    tpm: 0,
+    tpa: 0,
+    ftm: 0,
+    fta: 0,
+    oreb: 0,
+    dreb: 0,
+    reb: 0,
+    ast: 0,
+    stl: 0,
+    blk: 0,
+    to: 0,
+    pf: 0,
+    pm: 0,
+  };
+}
+
+function buildLivePlayerBox(player: LivePlayer): StatLine {
+  const stats = player.stats ?? {};
+  const min = String(stats.min ?? "00:00");
+  const box = createEmptyStatLine();
+
+  box.min = min;
+  box.seconds = parseMinutesToSeconds(min);
+
+  for (const key of STAT_NUMBER_KEYS) {
+    box[key] = toNumber(stats[key]);
+  }
+
+  return box;
+}
+
+function getLivePlayerName(player: LivePlayer) {
+  const first = String(player.first ?? "").trim();
+  const last = String(player.last ?? "").trim();
+  return `${first} ${last}`.trim();
+}
+
+function getLiveStatus(game: TeamGame, gamepack: LiveGamepack | undefined) {
+  const last = gamepack?.flow?.last;
+  const quarter = toNumber(last?.quarter);
+  const time = String(last?.time ?? "").trim();
+
+  if (quarter > 0 && time) {
+    return `Q${quarter} ${time}`;
+  }
+
+  return game.status ?? "Live";
+}
+
+function getLiveScore(gamepack: LiveGamepack | undefined, side: "home" | "away") {
+  const last = gamepack?.flow?.last;
+  const value = side === "home" ? last?.homeScore : last?.awayScore;
+
+  return toNumber(value);
+}
+
+function getPlayerTeamAbbrs(playerPage: PlayerPageData) {
+  return [
+    ...new Set(
+      [
+        ...playerPage.teams.map((team) => team.abbr),
+        ...playerPage.games.map((game) => game.teamAbbr),
+      ]
+        .map((teamAbbr) => teamAbbr.toUpperCase())
+        .filter(Boolean),
+    ),
+  ];
+}
+
+function getPlayerFlowKeys(playerPage: PlayerPageData, player: LivePlayer) {
+  const fullName = playerPage.player.name.trim();
+  const liveName = getLivePlayerName(player);
+  const initialName = `${playerPage.player.first.charAt(0)}. ${
+    playerPage.player.last
+  }`.trim();
+  const playerId = String(playerPage.player.id);
+
+  return [
+    fullName,
+    liveName,
+    initialName,
+    `${fullName}#${playerId}`,
+    `${initialName}#${playerId}`,
+  ].filter(Boolean);
+}
+
+function pickMappedPlayerEvents<T>(
+  map: Record<string, T[]> | undefined,
+  keys: string[],
+) {
+  if (!map) {
+    return [];
+  }
+
+  for (const key of keys) {
+    if (map[key]) {
+      return map[key];
+    }
+  }
+
+  return [];
+}
+
+function buildLivePlayerGame(
+  playerPage: PlayerPageData,
+  statusGame: TeamGame,
+  gamepack: LiveGamepack | undefined,
+): DisplayPlayerGame | null {
+  const side = statusGame.homeAway;
+  const teams = gamepack?.box?.teams;
+  const team = side === "home" ? teams?.home : teams?.away;
+  const opponent = side === "home" ? teams?.away : teams?.home;
+  const livePlayer = (team?.players ?? []).find(
+    (player) => toNumber(player.id) === playerPage.player.id,
+  );
+
+  if (!livePlayer) {
+    return null;
+  }
+
+  const flowKeys = getPlayerFlowKeys(playerPage, livePlayer);
+  const sidePlayers = gamepack?.flow?.players?.[side];
+  const sideSegments = gamepack?.flow?.segments?.[side];
+  const teamScore = getLiveScore(gamepack, side) || statusGame.teamScore;
+  const oppScore =
+    getLiveScore(gamepack, side === "home" ? "away" : "home") ||
+    statusGame.oppScore;
+
+  return {
+    gameId: statusGame.gameId,
+    nbaGameId: statusGame.nbaGameId,
+    date: statusGame.date,
+    start: statusGame.start,
+    season: statusGame.season,
+    seasonType: statusGame.seasonType,
+    homeAway: side,
+    result: null,
+    status: getLiveStatus(statusGame, gamepack),
+    played: false,
+    teamScore,
+    oppScore,
+    teamId: toNumber(team?.id),
+    teamAbbr: String(team?.abbr ?? "").toUpperCase() || playerPage.teams[0]?.abbr || "",
+    teamName: String(team?.name ?? ""),
+    opponentId: toNumber(opponent?.id) || statusGame.opponentId,
+    opponentAbbr: String(opponent?.abbr ?? statusGame.opponentAbbr),
+    opponentName: String(opponent?.name ?? statusGame.opponentName),
+    box: buildLivePlayerBox(livePlayer),
+    gamepackKey: statusGame.gamepackKey,
+    playerId: playerPage.player.id,
+    playerKey: playerPage.player.key,
+    detail: {
+      actions: pickMappedPlayerEvents(sidePlayers, flowKeys),
+      segments: pickMappedPlayerEvents(sideSegments, flowKeys),
+    },
+  };
+}
+
+function upsertLivePlayerGames(
+  games: DisplayPlayerGame[],
+  liveGames: DisplayPlayerGame[],
+) {
+  if (!liveGames.length) {
+    return games;
+  }
+
+  const liveGamesById = new Map(liveGames.map((game) => [game.gameId, game]));
+  const replacedGameIds = new Set<string>();
+  const nextGames = games.map((game) => {
+    const liveGame = liveGamesById.get(game.gameId);
+    if (!liveGame) {
+      return game;
+    }
+
+    replacedGameIds.add(game.gameId);
+    return liveGame;
+  });
+
+  for (const liveGame of liveGames) {
+    if (!replacedGameIds.has(liveGame.gameId)) {
+      nextGames.push(liveGame);
+    }
+  }
+
+  return nextGames;
+}
+
+function getSeasonTypeCounts(games: DisplayPlayerGame[]) {
   return games.reduce(
     (counts, game) => {
       if (game.seasonType === "regular") {
@@ -68,13 +411,13 @@ function getSeasonTypeCounts(games: PlayerGame[]) {
   );
 }
 
-function getSeasonTypeOptions(playerPage: PlayerPageData) {
-  const counts = getSeasonTypeCounts(playerPage.games);
+function getSeasonTypeOptions(games: DisplayPlayerGame[]) {
+  const counts = getSeasonTypeCounts(games);
   const options: Array<SeasonTypeSelectorOption<PlayerFilter>> = [
     {
       value: "all" as const,
       label: "All",
-      count: playerPage.games.length,
+      count: games.length,
     },
   ];
 
@@ -105,7 +448,7 @@ function getSeasonTypeOptions(playerPage: PlayerPageData) {
   return options;
 }
 
-function isGameInFilter(game: PlayerGame, filter: PlayerFilter) {
+function isGameInFilter(game: DisplayPlayerGame, filter: PlayerFilter) {
   if (filter === "all") {
     return true;
   }
@@ -117,7 +460,7 @@ function isGameInFilter(game: PlayerGame, filter: PlayerFilter) {
   return game.seasonType === filter;
 }
 
-function getGamesForFilter(games: PlayerGame[], filter: PlayerFilter) {
+function getGamesForFilter(games: DisplayPlayerGame[], filter: PlayerFilter) {
   const filteredGames = games.filter((game) => isGameInFilter(game, filter));
 
   return [...filteredGames].reverse();
@@ -135,9 +478,127 @@ export function PlayerPageDetails({ playerPage }: PlayerPageDetailsProps) {
   const [timelineStatOn, setTimelineStatOn] = useState(() =>
     Array.from({ length: PLAYER_TIMELINE_STAT_COUNT }, () => true),
   );
+  const [teamStatuses, setTeamStatuses] = useState<Record<string, TeamStatus>>(
+    {},
+  );
+  const [liveGamepacks, setLiveGamepacks] = useState<
+    Record<string, LiveGamepack>
+  >({});
+  const teamAbbrs = getPlayerTeamAbbrs(playerPage);
+  const teamStatusFetchKey = teamAbbrs.join("|");
+  const liveStatusGames = Object.values(teamStatuses)
+    .map((teamStatus) => teamStatus.currentGame)
+    .filter(
+      (game): game is TeamGame =>
+        game !== null && game !== undefined && isLiveTeamGame(game),
+    );
+  const liveGameIds = [
+    ...new Set(liveStatusGames.map((game) => game.gameId).filter(Boolean)),
+  ];
+  const liveGameFetchKey = liveGameIds.join("|");
 
-  const options = getSeasonTypeOptions(playerPage);
-  const filteredGames = getGamesForFilter(playerPage.games, selectedFilter);
+  useEffect(() => {
+    const currentTeamAbbrs = teamStatusFetchKey
+      ? teamStatusFetchKey.split("|")
+      : [];
+    if (!currentTeamAbbrs.length) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadTeamStatuses() {
+      const entries = await Promise.all(
+        currentTeamAbbrs.map(async (teamAbbr) => {
+          try {
+            const response = await fetch(
+              `/api/team-status/${encodeURIComponent(teamAbbr)}`,
+              { cache: "no-store" },
+            );
+
+            if (!response.ok) {
+              return null;
+            }
+
+            return [teamAbbr, (await response.json()) as TeamStatus] as const;
+          } catch {
+            return null;
+          }
+        }),
+      );
+
+      if (!cancelled) {
+        setTeamStatuses(
+          Object.fromEntries(entries.filter((entry) => entry !== null)),
+        );
+      }
+    }
+
+    loadTeamStatuses();
+    const intervalId = window.setInterval(loadTeamStatuses, 30_000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [teamStatusFetchKey]);
+
+  useEffect(() => {
+    const gameIds = liveGameFetchKey ? liveGameFetchKey.split("|") : [];
+    if (!gameIds.length) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadLiveGames() {
+      const entries = await Promise.all(
+        gameIds.map(async (gameId) => {
+          try {
+            const response = await fetch(
+              `/api/live-games/${encodeURIComponent(gameId)}`,
+              { cache: "no-store" },
+            );
+
+            if (!response.ok) {
+              return null;
+            }
+
+            return [gameId, (await response.json()) as LiveGamepack] as const;
+          } catch {
+            return null;
+          }
+        }),
+      );
+
+      if (!cancelled) {
+        setLiveGamepacks(
+          Object.fromEntries(entries.filter((entry) => entry !== null)),
+        );
+      }
+    }
+
+    loadLiveGames();
+    const intervalId = window.setInterval(loadLiveGames, 30_000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [liveGameFetchKey]);
+
+  const livePlayerGames = liveStatusGames.flatMap((statusGame) => {
+    const liveGame = buildLivePlayerGame(
+      playerPage,
+      statusGame,
+      liveGamepacks[statusGame.gameId],
+    );
+
+    return liveGame ? [liveGame] : [];
+  });
+  const games = upsertLivePlayerGames(playerPage.games, livePlayerGames);
+  const options = getSeasonTypeOptions(games);
+  const filteredGames = getGamesForFilter(games, selectedFilter);
   const displayedGames = filteredGames.slice(0, visibleGames);
   const hasMoreGames = visibleGames < filteredGames.length;
 
@@ -201,13 +662,11 @@ export function PlayerPageDetails({ playerPage }: PlayerPageDetailsProps) {
                   <div>
                     <div className="flex flex-wrap items-center gap-3">
                       <span
-                        className={`rounded-full px-3 py-1 font-mono text-[11px] uppercase tracking-[0.18em] ${
-                          game.result === "W"
-                            ? "bg-[#dff3e4] text-[#166534] dark:bg-[#193126] dark:text-[#86efac]"
-                            : "bg-[#f7e0e0] text-[#991b1b] dark:bg-[#341c1c] dark:text-[#fca5a5]"
-                        }`}
+                        className={`rounded-full px-3 py-1 font-mono text-[11px] uppercase tracking-[0.18em] ${getResultBadgeClass(
+                          game,
+                        )}`}
                       >
-                        {game.result}
+                        {getResultBadgeLabel(game)}
                       </span>
                       <span className="rounded-full bg-card px-3 py-1 font-mono text-[11px] uppercase tracking-[0.18em] text-muted">
                         {formatSeasonTypeLabel(game.seasonType)}
