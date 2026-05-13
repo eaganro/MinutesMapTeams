@@ -73,6 +73,8 @@ type TeamStatus = {
 type LiveGamepack = {
   box?: {
     start?: string | null;
+    status?: string | null;
+    gameStatusText?: string | null;
     teams?: {
       away?: LiveTeam;
       home?: LiveTeam;
@@ -84,6 +86,7 @@ type LiveGamepack = {
       time?: string | null;
       awayScore?: number | string | null;
       homeScore?: number | string | null;
+      status?: string | null;
     };
     players?: {
       away?: Record<string, PlayerGameAction[]>;
@@ -229,6 +232,21 @@ function parseMinutesToSeconds(value?: string) {
   return minutes * 60 + seconds;
 }
 
+function isZeroClock(value?: string | null) {
+  const normalized = String(value ?? "").trim().toUpperCase();
+  if (!normalized) {
+    return false;
+  }
+
+  if (normalized.startsWith("PT") && normalized.endsWith("S")) {
+    return (
+      parseMinutesToSeconds(normalized.slice(2, -1).replace("M", ":")) === 0
+    );
+  }
+
+  return parseMinutesToSeconds(normalized.replace(".", ":")) === 0;
+}
+
 function createEmptyStatLine(): StatLine {
   return {
     min: "0:00",
@@ -273,6 +291,10 @@ function getLivePlayerName(player: LivePlayer) {
 }
 
 function getLiveStatus(game: TeamGame, gamepack: LiveGamepack | undefined) {
+  if (isFinalLiveGamepack(gamepack)) {
+    return "Final";
+  }
+
   const last = gamepack?.flow?.last;
   const quarter = toNumber(last?.quarter);
   const time = String(last?.time ?? "").trim();
@@ -282,6 +304,27 @@ function getLiveStatus(game: TeamGame, gamepack: LiveGamepack | undefined) {
   }
 
   return game.status ?? "Live";
+}
+
+function isFinalLiveGamepack(gamepack: LiveGamepack | undefined) {
+  const status = String(
+    gamepack?.box?.gameStatusText ??
+      gamepack?.box?.status ??
+      gamepack?.flow?.last?.status ??
+      "",
+  )
+    .trim()
+    .toLowerCase();
+  if (status.startsWith("final")) {
+    return true;
+  }
+
+  const last = gamepack?.flow?.last;
+  const quarter = toNumber(last?.quarter);
+  const awayScore = toNumber(last?.awayScore);
+  const homeScore = toNumber(last?.homeScore);
+
+  return quarter >= 4 && isZeroClock(last?.time) && awayScore !== homeScore;
 }
 
 function getLiveScore(gamepack: LiveGamepack | undefined, side: "home" | "away") {
@@ -561,8 +604,6 @@ export function PlayerPageDetails({ playerPage }: PlayerPageDetailsProps) {
     }
 
     let cancelled = false;
-    let intervalId: number | undefined;
-
     async function loadTeamStatuses(teamAbbrsToFetch: string[]) {
       const entries = await Promise.all(
         teamAbbrsToFetch.map(async (teamAbbr) => {
@@ -593,48 +634,10 @@ export function PlayerPageDetails({ playerPage }: PlayerPageDetailsProps) {
       return nextStatuses;
     }
 
-    async function loadInitialTeamStatuses() {
-      const nextStatuses = await loadTeamStatuses(currentTeamAbbrs);
-      if (cancelled || !nextStatuses) {
-        return;
-      }
-
-      const liveTeamAbbrs = Object.entries(nextStatuses)
-        .filter(([, teamStatus]) => {
-          const game = teamStatus.currentGame;
-          return game !== null && game !== undefined && isLiveTeamGame(game);
-        })
-        .map(([teamAbbr]) => teamAbbr);
-
-      if (!liveTeamAbbrs.length) {
-        return;
-      }
-
-      intervalId = window.setInterval(async () => {
-        const activeTeamAbbr = activeLiveTeamAbbrRef.current;
-        const latestStatuses = await loadTeamStatuses(
-          activeTeamAbbr ? [activeTeamAbbr] : liveTeamAbbrs,
-        );
-        const stillLive = Object.values(latestStatuses ?? {}).some(
-          (teamStatus) => {
-            const game = teamStatus.currentGame;
-            return game !== null && game !== undefined && isLiveTeamGame(game);
-          },
-        );
-
-        if (!stillLive && intervalId) {
-          window.clearInterval(intervalId);
-        }
-      }, 30_000);
-    }
-
-    loadInitialTeamStatuses();
+    loadTeamStatuses(currentTeamAbbrs);
 
     return () => {
       cancelled = true;
-      if (intervalId) {
-        window.clearInterval(intervalId);
-      }
     };
   }, [teamStatusFetchKey]);
 
@@ -688,6 +691,14 @@ export function PlayerPageDetails({ playerPage }: PlayerPageDetailsProps) {
               currentTeamAbbr ?? activeLiveGame.teamAbbr,
             );
           }
+        }
+
+        const loadedGamepacks = Object.values(nextGamepacks);
+        if (
+          loadedGamepacks.length > 0 &&
+          loadedGamepacks.every((gamepack) => isFinalLiveGamepack(gamepack))
+        ) {
+          window.clearInterval(intervalId);
         }
       }
     }
