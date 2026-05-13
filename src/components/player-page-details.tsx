@@ -280,6 +280,7 @@ function buildLivePlayerBox(player: LivePlayer): StatLine {
   for (const key of STAT_NUMBER_KEYS) {
     box[key] = toNumber(stats[key]);
   }
+  box.reb = toNumber(stats.reb) || box.oreb + box.dreb;
 
   return box;
 }
