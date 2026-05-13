@@ -617,10 +617,27 @@ function getRowsFromGameBoxes(games: TeamGame[]) {
   }));
 }
 
+function comparePlayersByGamesThenMinutes(
+  left: PlayerTableRow,
+  right: PlayerTableRow,
+) {
+  const gamesDifference = right.games - left.games;
+
+  if (gamesDifference !== 0) {
+    return gamesDifference;
+  }
+
+  const minuteDifference = right.totalSeconds - left.totalSeconds;
+
+  if (minuteDifference !== 0) {
+    return minuteDifference;
+  }
+
+  return left.name.localeCompare(right.name);
+}
+
 function sortPlayerRows(rows: PlayerTableRow[]) {
-  return [...rows].sort(
-    (left, right) => right.totalSeconds - left.totalSeconds,
-  );
+  return [...rows].sort(comparePlayersByGamesThenMinutes);
 }
 
 function getPlayerSortValue(player: PlayerTableRow, sortKey: PlayerSortKey) {
@@ -654,7 +671,7 @@ function sortPlayerRowsByColumn(
         : Number(leftValue) - Number(rightValue);
 
     if (comparison === 0) {
-      return right.totalSeconds - left.totalSeconds;
+      return comparePlayersByGamesThenMinutes(left, right);
     }
 
     return sortDirection === "asc" ? comparison : -comparison;
@@ -727,7 +744,7 @@ export function TeamPageDetails({
     useState<GameFilter>("regular");
   const [selectedGameFilter, setSelectedGameFilter] =
     useState<GameFilter>("all");
-  const [playerSortKey, setPlayerSortKey] = useState<PlayerSortKey>("min");
+  const [playerSortKey, setPlayerSortKey] = useState<PlayerSortKey>("games");
   const [playerSortDirection, setPlayerSortDirection] =
     useState<SortDirection>("desc");
   const [teamStatus, setTeamStatus] = useState<TeamStatus | null>(null);

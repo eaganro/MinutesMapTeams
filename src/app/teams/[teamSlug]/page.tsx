@@ -40,12 +40,47 @@ function getPlayerTotalBox(player: TeamPlayerSeason): StatLine | null {
   return player.totals?.box ?? player.box ?? null;
 }
 
-function getPlayersByMinutes(players: TeamPlayerSeason[]) {
-  return [...players].sort(
-    (left, right) =>
-      (getPlayerTotalBox(right)?.seconds ?? 0) -
-      (getPlayerTotalBox(left)?.seconds ?? 0),
-  );
+function parseMinutesToSeconds(value: string | undefined) {
+  if (!value) {
+    return 0;
+  }
+
+  const [minutes, seconds] = value.split(":").map(Number);
+
+  if (!Number.isFinite(minutes) || !Number.isFinite(seconds)) {
+    return 0;
+  }
+
+  return minutes * 60 + seconds;
+}
+
+function getPlayerGames(player: TeamPlayerSeason) {
+  return player.totals?.games ?? player.games ?? 0;
+}
+
+function getPlayerTotalSeconds(player: TeamPlayerSeason) {
+  const totalBox = getPlayerTotalBox(player);
+
+  return totalBox?.seconds ?? parseMinutesToSeconds(totalBox?.min);
+}
+
+function getPlayersByGamesThenMinutes(players: TeamPlayerSeason[]) {
+  return [...players].sort((left, right) => {
+    const gamesDifference = getPlayerGames(right) - getPlayerGames(left);
+
+    if (gamesDifference !== 0) {
+      return gamesDifference;
+    }
+
+    const minuteDifference =
+      getPlayerTotalSeconds(right) - getPlayerTotalSeconds(left);
+
+    if (minuteDifference !== 0) {
+      return minuteDifference;
+    }
+
+    return left.name.localeCompare(right.name);
+  });
 }
 
 export async function generateMetadata({
@@ -91,7 +126,7 @@ export default async function TeamDetailPage({ params }: TeamPageProps) {
   }
 
   const allGames = [...teamPage.games].reverse();
-  const players = getPlayersByMinutes(teamPage.players);
+  const players = getPlayersByGamesThenMinutes(teamPage.players);
   const playerOptions = players.map((player) => ({
     id: player.playerId,
     name: player.name,
