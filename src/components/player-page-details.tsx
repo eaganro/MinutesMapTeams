@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   PlayerGame,
   PlayerGameAction,
@@ -27,6 +27,38 @@ const SEASON_TYPE_LABELS: Record<string, string> = {
   play_in: "Play-In",
   playoffs: "Playoffs",
 };
+const NBA_TEAM_ABBREVIATIONS = new Set([
+  "ATL",
+  "BOS",
+  "BKN",
+  "CHA",
+  "CHI",
+  "CLE",
+  "DAL",
+  "DEN",
+  "DET",
+  "GSW",
+  "HOU",
+  "IND",
+  "LAC",
+  "LAL",
+  "MEM",
+  "MIA",
+  "MIL",
+  "MIN",
+  "NOP",
+  "NYK",
+  "OKC",
+  "ORL",
+  "PHI",
+  "PHX",
+  "POR",
+  "SAC",
+  "SAS",
+  "TOR",
+  "UTA",
+  "WAS",
+]);
 
 type PlayerFilter = "all" | "regular" | "playoffs" | "other";
 type DisplayPlayerGame = Omit<PlayerGame, "gamepackKey" | "result"> & {
@@ -267,7 +299,7 @@ function getPlayerTeamAbbrs(playerPage: PlayerPageData) {
         ...playerPage.games.map((game) => game.teamAbbr),
       ]
         .map((teamAbbr) => teamAbbr.toUpperCase())
-        .filter(Boolean),
+        .filter((teamAbbr) => NBA_TEAM_ABBREVIATIONS.has(teamAbbr)),
     ),
   ];
 }
@@ -487,6 +519,8 @@ export function PlayerPageDetails({ playerPage }: PlayerPageDetailsProps) {
   const [liveGamepacks, setLiveGamepacks] = useState<
     Record<string, LiveGamepack>
   >({});
+  const activeLiveTeamAbbrRef = useRef<string | null>(null);
+  const liveStatusGamesRef = useRef<TeamGame[]>([]);
   const teamAbbrs = useMemo(() => getPlayerTeamAbbrs(playerPage), [playerPage]);
   const teamStatusFetchKey = teamAbbrs.join("|");
   const liveStatusGames = useMemo(
@@ -511,11 +545,17 @@ export function PlayerPageDetails({ playerPage }: PlayerPageDetailsProps) {
   const liveGameFetchKey = liveGameIds.join("|");
 
   useEffect(() => {
-    const currentTeamAbbrs = activeLiveTeamAbbr
-      ? [activeLiveTeamAbbr]
-      : teamStatusFetchKey
-        ? teamStatusFetchKey.split("|")
-        : [];
+    activeLiveTeamAbbrRef.current = activeLiveTeamAbbr;
+  }, [activeLiveTeamAbbr]);
+
+  useEffect(() => {
+    liveStatusGamesRef.current = liveStatusGames;
+  }, [liveStatusGames]);
+
+  useEffect(() => {
+    const currentTeamAbbrs = teamStatusFetchKey
+      ? teamStatusFetchKey.split("|")
+      : [];
     if (!currentTeamAbbrs.length) {
       return;
     }
@@ -523,9 +563,9 @@ export function PlayerPageDetails({ playerPage }: PlayerPageDetailsProps) {
     let cancelled = false;
     let intervalId: number | undefined;
 
-    async function loadTeamStatuses() {
+    async function loadTeamStatuses(teamAbbrsToFetch: string[]) {
       const entries = await Promise.all(
-        currentTeamAbbrs.map(async (teamAbbr) => {
+        teamAbbrsToFetch.map(async (teamAbbr) => {
           try {
             const response = await fetch(
               `/api/team-status/${encodeURIComponent(teamAbbr)}`,
@@ -554,7 +594,7 @@ export function PlayerPageDetails({ playerPage }: PlayerPageDetailsProps) {
     }
 
     async function loadInitialTeamStatuses() {
-      const nextStatuses = await loadTeamStatuses();
+      const nextStatuses = await loadTeamStatuses(currentTeamAbbrs);
       if (cancelled || !nextStatuses) {
         return;
       }
@@ -571,7 +611,10 @@ export function PlayerPageDetails({ playerPage }: PlayerPageDetailsProps) {
       }
 
       intervalId = window.setInterval(async () => {
-        const latestStatuses = await loadTeamStatuses();
+        const activeTeamAbbr = activeLiveTeamAbbrRef.current;
+        const latestStatuses = await loadTeamStatuses(
+          activeTeamAbbr ? [activeTeamAbbr] : liveTeamAbbrs,
+        );
         const stillLive = Object.values(latestStatuses ?? {}).some(
           (teamStatus) => {
             const game = teamStatus.currentGame;
@@ -593,7 +636,7 @@ export function PlayerPageDetails({ playerPage }: PlayerPageDetailsProps) {
         window.clearInterval(intervalId);
       }
     };
-  }, [activeLiveTeamAbbr, teamStatusFetchKey]);
+  }, [teamStatusFetchKey]);
 
   useEffect(() => {
     const gameIds = liveGameFetchKey ? liveGameFetchKey.split("|") : [];
@@ -629,8 +672,8 @@ export function PlayerPageDetails({ playerPage }: PlayerPageDetailsProps) {
         );
         setLiveGamepacks(nextGamepacks);
 
-        if (!activeLiveTeamAbbr) {
-          const activeLiveGame = liveStatusGames
+        if (!activeLiveTeamAbbrRef.current) {
+          const activeLiveGame = liveStatusGamesRef.current
             .map((statusGame) =>
               buildLivePlayerGame(
                 playerPage,
@@ -641,7 +684,9 @@ export function PlayerPageDetails({ playerPage }: PlayerPageDetailsProps) {
             .find((game) => game !== null);
 
           if (activeLiveGame) {
-            setActiveLiveTeamAbbr(activeLiveGame.teamAbbr);
+            setActiveLiveTeamAbbr((currentTeamAbbr) =>
+              currentTeamAbbr ?? activeLiveGame.teamAbbr,
+            );
           }
         }
       }
@@ -654,7 +699,7 @@ export function PlayerPageDetails({ playerPage }: PlayerPageDetailsProps) {
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [activeLiveTeamAbbr, liveGameFetchKey, liveStatusGames, playerPage]);
+  }, [liveGameFetchKey, playerPage]);
 
   const livePlayerGames = liveStatusGames.flatMap((statusGame) => {
     const liveGame = buildLivePlayerGame(
