@@ -1,9 +1,7 @@
-import { GetObjectCommand, NoSuchKey, S3Client } from "@aws-sdk/client-s3";
 import { cache } from "react";
-import { gunzipSync } from "node:zlib";
+import { findSeasonsWithData, getGzippedJson } from "@/lib/s3-json";
+import { getKnownSeasons } from "@/lib/seasons";
 
-export const CURRENT_SEASON = "2025-26";
-export const TEAM_DATA_BUCKET = "roryeagan.com-nba-processed-data";
 export const TEAM_ABBREVIATIONS = [
   "ATL",
   "BOS",
@@ -36,10 +34,6 @@ export const TEAM_ABBREVIATIONS = [
   "UTA",
   "WAS",
 ] as const;
-
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION ?? "us-east-1",
-});
 
 export type StatLine = {
   seconds?: number;
@@ -177,41 +171,15 @@ function getTeamDataKey(teamAbbr: string, season: string) {
   return `data/pages/teams/${teamAbbr}/${season}.json.gz`;
 }
 
-export const getTeamPageData = cache(
-  async (teamAbbr: string, season = CURRENT_SEASON) => {
-    try {
-      const response = await s3Client.send(
-        new GetObjectCommand({
-          Bucket: TEAM_DATA_BUCKET,
-          Key: getTeamDataKey(teamAbbr, season),
-        }),
-      );
+export const getTeamPageData = cache((teamAbbr: string, season: string) =>
+  getGzippedJson<TeamPageData>(getTeamDataKey(teamAbbr, season)),
+);
 
-      if (!response.Body) {
-        return null;
-      }
-
-      const compressedBytes = await response.Body.transformToByteArray();
-      const jsonText = gunzipSync(Buffer.from(compressedBytes)).toString("utf8");
-      return JSON.parse(jsonText) as TeamPageData;
-    } catch (error) {
-      if (error instanceof NoSuchKey) {
-        return null;
-      }
-
-      if (
-        typeof error === "object" &&
-        error !== null &&
-        "$metadata" in error &&
-        "name" in error &&
-        (error as { name?: string }).name === "NoSuchKey"
-      ) {
-        return null;
-      }
-
-      throw error;
-    }
-  },
+// Seasons this team has a page artifact for, newest first.
+export const getTeamSeasons = cache((teamAbbr: string) =>
+  findSeasonsWithData(getKnownSeasons(), (season) =>
+    getTeamDataKey(teamAbbr, season),
+  ),
 );
 
 export function isTeamAbbreviation(value: string): value is (typeof TEAM_ABBREVIATIONS)[number] {

@@ -1,0 +1,293 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { PlayersDropdown } from "@/components/players-dropdown";
+import { SeasonSwitcher } from "@/components/season-switcher";
+import { TeamPageDetails } from "@/components/team-page-details";
+import {
+  getCurrentSeason,
+  getSeasonPathSuffix,
+  isKnownSeason,
+} from "@/lib/seasons";
+import {
+  getTeamPageData,
+  getTeamSeasons,
+  isTeamAbbreviation,
+  type StatLine,
+  type TeamPlayerSeason,
+} from "@/lib/team-data";
+
+// `season` is omitted on the bare /teams/{team} URL, which shows the newest
+// season the team has data for.
+type TeamSeasonParams = {
+  teamSlug: string;
+  season?: string;
+};
+
+async function loadTeamSeason({ teamSlug, season }: TeamSeasonParams) {
+  const teamAbbr = teamSlug.toUpperCase();
+
+  if (!isTeamAbbreviation(teamAbbr)) {
+    return null;
+  }
+
+  if (season !== undefined && !isKnownSeason(season)) {
+    return null;
+  }
+
+  const seasons = await getTeamSeasons(teamAbbr);
+  const selectedSeason = season ?? seasons[0];
+
+  if (!selectedSeason || !seasons.includes(selectedSeason)) {
+    return null;
+  }
+
+  const teamPage = await getTeamPageData(teamAbbr, selectedSeason);
+  if (!teamPage) {
+    return null;
+  }
+
+  // Some artifacts carry an empty team name; show the abbreviation instead of
+  // a blank heading.
+  const teamName = teamPage.team.name || teamPage.team.abbr;
+  return { teamPage, teamName, seasons };
+}
+
+function formatSignedNumber(value: number) {
+  return value > 0 ? `+${value}` : `${value}`;
+}
+
+function formatSeasonRecord(wins: number, losses: number, ties = 0) {
+  return ties > 0 ? `${wins}-${losses}-${ties}` : `${wins}-${losses}`;
+}
+
+function formatUpdatedAt(value: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(new Date(value));
+}
+
+function getPlayerTotalBox(player: TeamPlayerSeason): StatLine | null {
+  return player.totals?.box ?? player.box ?? null;
+}
+
+function parseMinutesToSeconds(value: string | undefined) {
+  if (!value) {
+    return 0;
+  }
+
+  const [minutes, seconds] = value.split(":").map(Number);
+
+  if (!Number.isFinite(minutes) || !Number.isFinite(seconds)) {
+    return 0;
+  }
+
+  return minutes * 60 + seconds;
+}
+
+function getPlayerGames(player: TeamPlayerSeason) {
+  return player.totals?.games ?? player.games ?? 0;
+}
+
+function getPlayerTotalSeconds(player: TeamPlayerSeason) {
+  const totalBox = getPlayerTotalBox(player);
+
+  return totalBox?.seconds ?? parseMinutesToSeconds(totalBox?.min);
+}
+
+function getPlayersByGamesThenMinutes(players: TeamPlayerSeason[]) {
+  return [...players].sort((left, right) => {
+    const gamesDifference = getPlayerGames(right) - getPlayerGames(left);
+
+    if (gamesDifference !== 0) {
+      return gamesDifference;
+    }
+
+    const minuteDifference =
+      getPlayerTotalSeconds(right) - getPlayerTotalSeconds(left);
+
+    if (minuteDifference !== 0) {
+      return minuteDifference;
+    }
+
+    return left.name.localeCompare(right.name);
+  });
+}
+
+export async function getTeamSeasonMetadata(
+  params: TeamSeasonParams,
+): Promise<Metadata> {
+  const loaded = await loadTeamSeason(params);
+  if (!loaded) {
+    return {
+      title: "Team Not Found",
+    };
+  }
+
+  const { teamPage, teamName } = loaded;
+
+  return {
+    title: `${teamName} ${teamPage.season}`,
+    description: `${teamName} ${teamPage.season} season page with team averages, full roster output, and game results.`,
+  };
+}
+
+export async function TeamSeasonPage(params: TeamSeasonParams) {
+  const loaded = await loadTeamSeason(params);
+  if (!loaded) {
+    notFound();
+  }
+
+  const { teamPage, teamName, seasons } = loaded;
+  const seasonPathSuffix = getSeasonPathSuffix(teamPage.season);
+  const allGames = [...teamPage.games].reverse();
+  const players = getPlayersByGamesThenMinutes(teamPage.players);
+  const playerOptions = players.map((player) => ({
+    id: player.playerId,
+    name: player.name,
+  }));
+
+  return (
+    <main className="mx-auto mt-2 flex w-full max-w-[1235px] flex-col gap-5 pb-10">
+      <section className="rounded-[20px] bg-card p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_30px_rgba(15,23,42,0.05)] sm:p-8 lg:p-10">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_340px]">
+          <div className="space-y-5">
+            <div className="space-y-3">
+              <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-muted">
+                Team Page Data
+              </p>
+              <h1 className="text-4xl font-semibold leading-tight tracking-[-0.03em] text-heading sm:text-5xl lg:text-6xl">
+                {teamName}
+              </h1>
+              <p className="max-w-3xl text-base leading-8 text-copy sm:text-lg">
+                {teamPage.season} season snapshot for the {teamName},
+                powered by the full processed team payload in S3.
+              </p>
+              <div className="flex flex-wrap items-center gap-2 pt-1 text-sm">
+                <SeasonSwitcher
+                  basePath={`/teams/${teamPage.team.abbr}`}
+                  seasons={seasons}
+                  selectedSeason={teamPage.season}
+                />
+                <PlayersDropdown
+                  players={playerOptions}
+                  teamAbbr={teamPage.team.abbr}
+                  teamName={teamName}
+                  seasonPathSuffix={seasonPathSuffix}
+                />
+                <Link
+                  href="/teams"
+                  className="rounded-full border border-border-strong bg-card-alt px-4 py-2 text-copy transition-colors hover:bg-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                >
+                  All Teams
+                </Link>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-[18px] bg-card-alt p-4">
+                <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted">
+                  Record
+                </p>
+                <p className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-heading">
+                  {formatSeasonRecord(
+                    teamPage.record.wins,
+                    teamPage.record.losses,
+                    teamPage.record.ties,
+                  )}
+                </p>
+              </div>
+
+              <div className="rounded-[18px] bg-card-alt p-4">
+                <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted">
+                  Points For
+                </p>
+                <p className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-heading">
+                  {teamPage.averages.pointsFor.toFixed(1)}
+                </p>
+              </div>
+
+              <div className="rounded-[18px] bg-card-alt p-4">
+                <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted">
+                  Points Against
+                </p>
+                <p className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-heading">
+                  {teamPage.averages.pointsAgainst.toFixed(1)}
+                </p>
+              </div>
+
+              <div className="rounded-[18px] bg-card-alt p-4">
+                <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted">
+                  Net Margin
+                </p>
+                <p className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-heading">
+                  {formatSignedNumber(
+                    Number(
+                      (
+                        teamPage.averages.pointsFor -
+                        teamPage.averages.pointsAgainst
+                      ).toFixed(1),
+                    ),
+                  )}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-[20px] bg-card-alt p-6">
+            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-muted">
+              Team Snapshot
+            </p>
+            <dl className="mt-4 space-y-3 text-sm leading-7 text-copy">
+              <div className="flex items-center justify-between gap-4">
+                <dt>Abbreviation</dt>
+                <dd className="font-medium text-foreground">
+                  {teamPage.team.abbr}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <dt>Season</dt>
+                <dd className="font-medium text-foreground">
+                  {teamPage.season}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <dt>Games in file</dt>
+                <dd className="font-medium text-foreground">
+                  {teamPage.games.length}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <dt>Players in file</dt>
+                <dd className="font-medium text-foreground">
+                  {teamPage.players.length}
+                </dd>
+              </div>
+              <div className="border-t border-border pt-3">
+                <dt className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted">
+                  Updated
+                </dt>
+                <dd className="mt-2 text-copy">
+                  {formatUpdatedAt(teamPage.updatedAt)}
+                </dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+      </section>
+
+      <TeamPageDetails
+        games={allGames}
+        players={players}
+        teamAbbr={teamPage.team.abbr}
+        seasonPathSuffix={seasonPathSuffix}
+        liveEnabled={teamPage.season === getCurrentSeason()}
+      />
+    </main>
+  );
+}

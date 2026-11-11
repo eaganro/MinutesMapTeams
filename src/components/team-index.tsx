@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CURRENT_SEASON, TEAM_ABBREVIATIONS } from "@/lib/team-data";
+import { TEAM_ABBREVIATIONS } from "@/lib/team-data";
 
 export function TeamIndex() {
   return (
@@ -15,10 +15,7 @@ export function TeamIndex() {
               href={`/teams/${teamAbbr}`}
               className="rounded-[18px] border border-border-strong bg-card-alt px-4 py-4 text-sm transition-colors hover:bg-hover"
             >
-              <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-muted">
-                {CURRENT_SEASON}
-              </p>
-              <p className="mt-2 text-lg font-semibold tracking-[-0.02em] text-heading">
+              <p className="text-lg font-semibold tracking-[-0.02em] text-heading">
                 {teamAbbr}
               </p>
               <p className="mt-1 text-copy">Open team page</p>

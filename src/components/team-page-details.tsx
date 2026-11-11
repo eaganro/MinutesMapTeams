@@ -726,12 +726,18 @@ type TeamPageDetailsProps = {
   games: TeamGame[];
   players: TeamPlayerSeason[];
   teamAbbr: string;
+  // Appended to player links so they stay in the season being viewed.
+  seasonPathSuffix: string;
+  // Only the season in progress has live status to layer on.
+  liveEnabled: boolean;
 };
 
 export function TeamPageDetails({
   games,
   players,
   teamAbbr,
+  seasonPathSuffix,
+  liveEnabled,
 }: TeamPageDetailsProps) {
   const [visiblePlayers, setVisiblePlayers] = useState(INITIAL_PLAYER_COUNT);
   const [visibleCompletedGames, setVisibleCompletedGames] = useState(
@@ -765,6 +771,10 @@ export function TeamPageDetails({
   >({});
 
   useEffect(() => {
+    if (!liveEnabled) {
+      return;
+    }
+
     let cancelled = false;
     let intervalId: number | undefined;
 
@@ -824,7 +834,7 @@ export function TeamPageDetails({
         window.clearInterval(intervalId);
       }
     };
-  }, [teamAbbr]);
+  }, [teamAbbr, liveEnabled]);
 
   useEffect(() => {
     const gameIds = liveGameFetchKey ? liveGameFetchKey.split("|") : [];
@@ -1002,7 +1012,7 @@ export function TeamPageDetails({
                   >
                     <td className="rounded-l-[16px] px-3 py-3 font-medium text-foreground">
                       <Link
-                        href={`/players/${player.playerId}`}
+                        href={`/players/${player.playerId}${seasonPathSuffix}`}
                         className="transition-colors hover:text-accent-strong"
                       >
                         {player.name}
