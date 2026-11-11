@@ -1,16 +1,7 @@
-import { GetObjectCommand, NoSuchKey, S3Client } from "@aws-sdk/client-s3";
-import { gunzipSync } from "node:zlib";
 import { cache } from "react";
-import {
-  CURRENT_SEASON,
-  TEAM_DATA_BUCKET,
-  type StatLine,
-  type TeamGameSeasonType,
-} from "@/lib/team-data";
-
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION ?? "us-east-1",
-});
+import { findSeasonsWithData, getGzippedJson } from "@/lib/s3-json";
+import { getKnownSeasons } from "@/lib/seasons";
+import type { StatLine, TeamGameSeasonType } from "@/lib/team-data";
 
 type TeamRecord = {
   wins: number;
@@ -125,39 +116,13 @@ export function isPlayerId(value: string) {
   return /^\d+$/.test(value);
 }
 
-export const getPlayerPageData = cache(
-  async (playerId: string, season = CURRENT_SEASON) => {
-    try {
-      const response = await s3Client.send(
-        new GetObjectCommand({
-          Bucket: TEAM_DATA_BUCKET,
-          Key: getPlayerDataKey(playerId, season),
-        }),
-      );
+export const getPlayerPageData = cache((playerId: string, season: string) =>
+  getGzippedJson<PlayerPageData>(getPlayerDataKey(playerId, season)),
+);
 
-      if (!response.Body) {
-        return null;
-      }
-
-      const compressedBytes = await response.Body.transformToByteArray();
-      const jsonText = gunzipSync(Buffer.from(compressedBytes)).toString("utf8");
-      return JSON.parse(jsonText) as PlayerPageData;
-    } catch (error) {
-      if (error instanceof NoSuchKey) {
-        return null;
-      }
-
-      if (
-        typeof error === "object" &&
-        error !== null &&
-        "$metadata" in error &&
-        "name" in error &&
-        (error as { name?: string }).name === "NoSuchKey"
-      ) {
-        return null;
-      }
-
-      throw error;
-    }
-  },
+// Seasons this player has a page artifact for, newest first.
+export const getPlayerSeasons = cache((playerId: string) =>
+  findSeasonsWithData(getKnownSeasons(), (season) =>
+    getPlayerDataKey(playerId, season),
+  ),
 );

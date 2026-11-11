@@ -12,12 +12,14 @@ type PlayersDropdownProps = {
   players: PlayerOption[];
   teamAbbr: string;
   teamName: string;
+  seasonPathSuffix: string;
 };
 
 export function PlayersDropdown({
   players,
   teamAbbr,
   teamName,
+  seasonPathSuffix,
 }: PlayersDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -100,7 +102,7 @@ export function PlayersDropdown({
               {players.map((player) => (
                 <Link
                   key={player.id}
-                  href={`/players/${player.id}`}
+                  href={`/players/${player.id}${seasonPathSuffix}`}
                   role="menuitem"
                   className="rounded-[10px] px-3 py-2 text-sm font-medium text-copy transition-colors hover:bg-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
                   onClick={closeMenu}

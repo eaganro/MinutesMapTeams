@@ -6,6 +6,7 @@ This repo is the frontend slice: team indexes, team season pages, player season 
 
 ## What It Shows
 
+- Multiple seasons: `/teams/BOS` and `/players/{id}` show the latest season, `/teams/BOS/2025-26` a specific one, with a season switcher on each page.
 - Team pages with schedule/results, roster output, season-type filters, and live game overlays.
 - Player pages with season splits, per-game box scores, event timelines, and live game insertion when the player appears in the active box score.
 - Static generation for team and player pages backed by compressed JSON artifacts in S3.

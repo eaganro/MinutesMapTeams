@@ -544,9 +544,14 @@ function getGamesForFilter(games: DisplayPlayerGame[], filter: PlayerFilter) {
 
 type PlayerPageDetailsProps = {
   playerPage: PlayerPageData;
+  // Only the season in progress has live status to layer on.
+  liveEnabled: boolean;
 };
 
-export function PlayerPageDetails({ playerPage }: PlayerPageDetailsProps) {
+export function PlayerPageDetails({
+  playerPage,
+  liveEnabled,
+}: PlayerPageDetailsProps) {
   const [selectedFilter, setSelectedFilter] = useState<PlayerFilter>("all");
   const [visibleGames, setVisibleGames] = useState(
     Math.min(INITIAL_GAME_COUNT, playerPage.games.length),
@@ -565,7 +570,10 @@ export function PlayerPageDetails({ playerPage }: PlayerPageDetailsProps) {
   >({});
   const activeLiveTeamAbbrRef = useRef<string | null>(null);
   const liveStatusGamesRef = useRef<TeamGame[]>([]);
-  const teamAbbrs = useMemo(() => getPlayerTeamAbbrs(playerPage), [playerPage]);
+  const teamAbbrs = useMemo(
+    () => (liveEnabled ? getPlayerTeamAbbrs(playerPage) : []),
+    [liveEnabled, playerPage],
+  );
   const teamStatusFetchKey = teamAbbrs.join("|");
   const liveStatusGames = useMemo(
     () =>

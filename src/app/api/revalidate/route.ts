@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import type { NextRequest } from "next/server";
 import { isPlayerId } from "@/lib/player-data";
+import { getKnownSeasons } from "@/lib/seasons";
 import { isTeamAbbreviation } from "@/lib/team-data";
 
 type RevalidatePayload = {
@@ -85,8 +86,15 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Each team/player also has one page per season. Those embed the season
+  // list, so they are refreshed too; a path is only re-rendered when it is
+  // next visited.
+  const seasons = getKnownSeasons();
   for (const path of paths) {
     revalidatePath(path);
+    for (const season of seasons) {
+      revalidatePath(`${path}/${season}`);
+    }
   }
 
   return Response.json({ revalidated: paths });

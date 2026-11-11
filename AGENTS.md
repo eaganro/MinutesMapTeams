@@ -35,6 +35,16 @@ The app reads compressed JSON artifacts from the `roryeagan.com-nba-processed-da
 
 Team/player pages are primarily static. Live data is layered on in client components after page load.
 
+## Seasons
+
+Season labels look like `2026-27`. `src/lib/seasons.ts` derives the current season from the date the same way the backend does (a season starts in October), so there is no constant to bump each year. `EARLIEST_SEASON` is the oldest season with page artifacts; lower it if older seasons are backfilled.
+
+- `/teams/{TEAM}` and `/players/{PLAYER_ID}` show the newest season that has an artifact. This is normally the current season; it falls back to an older one when there is no current artifact yet (early October, or a player who has not played this season).
+- `/teams/{TEAM}/{SEASON}` and `/players/{PLAYER_ID}/{SEASON}` show a specific season.
+- Links to the current season use the bare URL; links to older seasons carry the season suffix (`getSeasonPathSuffix`). Cross-links between team and player pages stay in the season being viewed.
+- Each page lists the seasons that have an artifact for that team/player by probing S3 for every season from `EARLIEST_SEASON` to the current one.
+- Live status and gamepack polling only run when the page shows the current season. `/api/team-status/{teamAbbr}` always reads the current season's status file.
+
 ## Live Game Strategy
 
 The browser should not fetch S3 directly. Client components call app API routes:
@@ -60,7 +70,7 @@ Player pages only show a temporary live row if the player appears in the live bo
 
 ## Revalidation
 
-The backend pipeline calls `/api/revalidate` with affected teams/players after page artifacts change. Do not add broad revalidation or full-site refresh behavior unless specifically requested.
+The backend pipeline calls `/api/revalidate` with affected teams/players after page artifacts change. The backend sends bare paths (`/teams/BOS`, `/players/123`); the route also revalidates each known season path under them, because every season page embeds the list of available seasons. Do not add broad revalidation or full-site refresh behavior unless specifically requested.
 
 ## Validation
 
