@@ -45,19 +45,29 @@ Season labels look like `2026-27`. `src/lib/seasons.ts` derives the current seas
 - Each page lists the seasons that have an artifact for that team/player by probing S3 for every season from `EARLIEST_SEASON` to the current one.
 - Live status and gamepack polling only run when the page shows the current season. `/api/team-status/{teamAbbr}` always reads the current season's status file.
 
+## The Minutes Chart
+
+The product's reason to exist is the minutes map: a line while a player is on the floor and a symbol for every play, on a shared game clock. Design decisions should serve it.
+
+- `src/components/chart/minutes-chart.tsx` is the one chart. Player pages feed it one row per game (the season map); team pages feed it one row per player for a single game.
+- `src/lib/timeline.ts` classifies play-by-play into symbols. It mirrors the main site's rules (`front/src/domain/events` and `front/src/ui/eventShapes.jsx` in `../BasketballStats`); keep the two in step so an event looks the same on both sites.
+- Markers are positioned with percentages (nested `<svg x="…%">`), so the chart renders on the server and resizes without measuring. Do not reintroduce width measurement.
+- Colours and tokens in `src/app/globals.css` mirror `front/src/theme.scss`; team colours in `src/lib/teams.ts` mirror `front/src/helpers/teamColors.js`. Team logos in `public/img/teams` are copies of the main site's.
+
 ## Live Game Strategy
 
 The browser should not fetch S3 directly. Client components call app API routes:
 
 - `/api/team-status/{teamAbbr}` proxies the team-status artifact.
-- `/api/live-games/{gameId}` proxies `data/gamepack/{gameId}.json.gz`.
+- `/api/live-games/{gameId}` proxies `data/gamepack/{gameId}.json.gz`. Team pages also use it to load a finished game's gamepack when a game row is opened.
+- `/api/search` serves the player directory for the header search box.
 
-Keep the polling conservative:
+Keep the polling conservative. `src/hooks/use-live-games.ts` implements this for both page types:
 
 - Fetch team-status once on initial page load.
-- Only poll if that initial status indicates a live game.
-- For player pages, check the player artifact's known NBA teams, then narrow to the active team once the player is found in a live gamepack.
-- Do not keep polling team-status once live gamepack polling is established.
+- Only poll gamepacks if that initial status indicates a live game.
+- For player pages, check the player artifact's known NBA teams, then narrow to the one game once the player is found in a live gamepack.
+- Do not poll team-status.
 - Stop gamepack polling when the gamepack indicates final.
 
 The `gamepackKey` field is only a signal that a live gamepack exists. The client should request gamepacks by `gameId` through `/api/live-games/{gameId}`.
@@ -67,6 +77,14 @@ The `gamepackKey` field is only a signal that a live gamepack exists. The client
 Current live gamepacks include player `stats.oreb` and `stats.dreb`, but may not include `stats.reb`. Derive live total rebounds as `oreb + dreb` when `reb` is missing.
 
 Player pages only show a temporary live row if the player appears in the live box score. Do not show inactive/DNP placeholders unless the user asks for that behavior.
+
+## Home Page And Search
+
+`src/lib/league-data.ts` reads all 30 team artifacts to build standings and a player directory, cached for an hour with `unstable_cache`. The home page and `/api/search` both use it. It is deliberately not tied to `/api/revalidate`.
+
+## Local Data Without AWS Credentials
+
+Set `PAGE_DATA_BASE_URL=https://minutesmap.com` in `.env.local` to read the same artifacts over the public CDN instead of S3. Leave it unset in production.
 
 ## Revalidation
 

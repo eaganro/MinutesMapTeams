@@ -2,38 +2,7 @@ import { cache } from "react";
 import { findSeasonsWithData, getGzippedJson } from "@/lib/s3-json";
 import { getKnownSeasons } from "@/lib/seasons";
 
-export const TEAM_ABBREVIATIONS = [
-  "ATL",
-  "BOS",
-  "BKN",
-  "CHA",
-  "CHI",
-  "CLE",
-  "DAL",
-  "DEN",
-  "DET",
-  "GSW",
-  "HOU",
-  "IND",
-  "LAC",
-  "LAL",
-  "MEM",
-  "MIA",
-  "MIL",
-  "MIN",
-  "NOP",
-  "NYK",
-  "OKC",
-  "ORL",
-  "PHI",
-  "PHX",
-  "POR",
-  "SAC",
-  "SAS",
-  "TOR",
-  "UTA",
-  "WAS",
-] as const;
+export { TEAM_ABBREVIATIONS, isTeamAbbreviation } from "@/lib/teams";
 
 export type StatLine = {
   seconds?: number;
@@ -69,7 +38,7 @@ export type TeamGameSeasonType =
   | "playoffs"
   | (string & {});
 
-type TeamRecord = {
+export type TeamRecord = {
   wins: number;
   losses: number;
   ties: number;
@@ -141,6 +110,15 @@ export type TeamPlayerSeason = {
   bySeasonType?: Partial<Record<TeamGameSeasonType, PlayerSeasonSplit>>;
 };
 
+export type TeamSeasonSplit = {
+  games: number;
+  record: TeamRecord;
+  averages: Omit<StatLine, "seconds" | "pm"> & {
+    pointsFor: number;
+    pointsAgainst: number;
+  };
+};
+
 export type TeamPageData = {
   schemaVersion: number;
   updatedAt: string;
@@ -165,6 +143,7 @@ export type TeamPageData = {
     pointsAgainst: number;
   };
   players: TeamPlayerSeason[];
+  bySeasonType?: Partial<Record<TeamGameSeasonType, TeamSeasonSplit>>;
 };
 
 function getTeamDataKey(teamAbbr: string, season: string) {
@@ -181,9 +160,3 @@ export const getTeamSeasons = cache((teamAbbr: string) =>
     getTeamDataKey(teamAbbr, season),
   ),
 );
-
-export function isTeamAbbreviation(value: string): value is (typeof TEAM_ABBREVIATIONS)[number] {
-  return TEAM_ABBREVIATIONS.includes(
-    value as (typeof TEAM_ABBREVIATIONS)[number],
-  );
-}

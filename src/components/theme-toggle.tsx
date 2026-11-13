@@ -101,6 +101,8 @@ export function ThemeToggle() {
     <button
       type="button"
       className="dark-mode-toggle"
+      // The server cannot know the stored theme, so the label may differ.
+      suppressHydrationWarning
       onClick={toggleDarkMode}
       aria-label={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
       title={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}

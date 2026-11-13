@@ -16,7 +16,7 @@ export function SeasonSwitcher({
 }: SeasonSwitcherProps) {
   return (
     <nav
-      className="flex w-fit max-w-full overflow-x-auto overflow-y-hidden rounded-full border border-divider bg-card-alt"
+      className="flex w-fit max-w-full overflow-x-auto rounded-full border border-border-strong bg-card-alt p-0.5"
       aria-label="Season"
     >
       {seasons.map((season) => {
@@ -27,10 +27,10 @@ export function SeasonSwitcher({
             key={season}
             href={`${basePath}${getSeasonPathSuffix(season)}`}
             aria-current={isSelected ? "page" : undefined}
-            className={`shrink-0 whitespace-nowrap px-4 py-2 font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
+            className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold tabular-nums transition-colors ${
               isSelected
                 ? "bg-selected text-heading"
-                : "text-muted hover:bg-hover hover:text-foreground"
+                : "text-muted hover:text-foreground"
             }`}
           >
             {season}

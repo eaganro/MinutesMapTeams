@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* The theme toggle sets data-theme on <html>; make Tailwind's dark: follow it. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* Tokens mirror front/src/theme.scss in the main MinutesMap repo. */
 :root {
   --background: #eaebed;
   --foreground: #222222;
@@ -18,12 +22,37 @@
   --focus: rgba(59, 130, 246, 0.5);
   --divider: #e5e7eb;
   --footer: #f0f0f0;
+  --link: #1d4ed8;
   --toggle-track: linear-gradient(135deg, #87ceeb 0%, #4fc3f7 100%);
   --toggle-thumb-light: linear-gradient(135deg, #ffd54f 0%, #ffa726 100%);
   --toggle-thumb-dark: linear-gradient(135deg, #e0e0e0 0%, #9e9e9e 100%);
-  --timeline-player-line: #334155;
+
+  --table-header: #ffffff;
+  --table-odd: #ffffff;
+  --table-even: #f9fafb;
+  --table-hover: #e5ecf6;
+  --highlight-col: rgba(59, 130, 246, 0.06);
+  --highlight-col-header: rgba(59, 130, 246, 0.12);
+  --tooltip: #ffffff;
+  --tooltip-shadow: rgba(0, 0, 0, 0.15);
+
+  --line-color: #000000;
   --line-color-light: #4b5563;
   --playline-hover: #a0a11b;
+  --stat-label: #374151;
+  --stat-label-off: #475569;
+  --stat-chip-on-bg: rgba(59, 130, 246, 0.1);
+  --stat-chip-on-border: rgba(59, 130, 246, 0.45);
+  --live: #22c55e;
+  --live-ring: rgba(34, 197, 94, 0.45);
+
+  --win: #15803d;
+  --win-bg: #dff3e4;
+  --win-fill: #22a05a;
+  --loss: #b91c1c;
+  --loss-bg: #f7e0e0;
+  --loss-fill: #dc4a4a;
+
   --event-point: #f59e0b;
   --event-miss: #475569;
   --event-rebound: #2563eb;
@@ -33,6 +62,7 @@
   --event-steal: #0891b2;
   --event-foul: #111827;
   --event-3pt-marker: #dc2626;
+
   --font-family-sans:
     system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
     Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
@@ -57,21 +87,55 @@
   --focus: rgba(96, 165, 250, 0.5);
   --divider: #333333;
   --footer: #181818;
+  --link: #93c5fd;
   --toggle-track: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  --toggle-thumb-light: linear-gradient(135deg, #ffd54f 0%, #ffa726 100%);
-  --toggle-thumb-dark: linear-gradient(135deg, #e0e0e0 0%, #9e9e9e 100%);
-  --timeline-player-line: #cbd5e1;
+
+  --table-header: #252525;
+  --table-odd: #1e1e1e;
+  --table-even: #252525;
+  --table-hover: #253041;
+  --highlight-col: #242b37;
+  --highlight-col-header: #29384f;
+  --tooltip: #2a2a2a;
+  --tooltip-shadow: rgba(0, 0, 0, 0.4);
+
+  --line-color: #888888;
   --line-color-light: #a3a3a3;
   --playline-hover: #dadb39;
+  --stat-label: #d1d5db;
+  --stat-label-off: #9ca3af;
+  --stat-chip-on-bg: rgba(96, 165, 250, 0.16);
+  --stat-chip-on-border: rgba(96, 165, 250, 0.5);
+  --live: #4ade80;
+  --live-ring: rgba(74, 222, 128, 0.55);
+
+  --win: #86efac;
+  --win-bg: #193126;
+  --win-fill: #34b06a;
+  --loss: #fca5a5;
+  --loss-bg: #341c1c;
+  --loss-fill: #e06060;
+
   --event-point: #fbbf24;
-  --event-miss: #94a3b8;
-  --event-rebound: #60a5fa;
-  --event-assist: #34d399;
-  --event-turnover: #f87171;
-  --event-block: #a78bfa;
+  --event-miss: #64748b;
+  --event-rebound: #3b82f6;
+  --event-assist: #10b981;
+  --event-turnover: #ef4444;
+  --event-block: #8b5cf6;
   --event-steal: #22d3ee;
-  --event-foul: #e5e7eb;
+  --event-foul: #9ca3af;
   --event-3pt-marker: #ef4444;
+}
+
+/* A subtree painted in one team's colours; see getTeamColorVars. */
+.team-scope {
+  --team: var(--team-light);
+  --team-text: var(--team-text-light);
+}
+
+[data-theme="dark"] .team-scope {
+  --team: var(--team-dark);
+  --team-text: var(--team-text-dark);
 }
 
 @theme inline {
@@ -92,57 +156,541 @@
   --color-focus: var(--focus);
   --color-divider: var(--divider);
   --color-footer: var(--footer);
+  --color-link: var(--link);
+  --color-team: var(--team);
+  --color-team-text: var(--team-text);
+  --color-win: var(--win);
+  --color-win-bg: var(--win-bg);
+  --color-loss: var(--loss);
+  --color-loss-bg: var(--loss-bg);
+  --color-tooltip: var(--tooltip);
   --font-sans: var(--font-family-sans);
   --font-mono: var(--font-family-mono);
   --font-display: var(--font-family-sans);
 }
 
-* {
-  box-sizing: border-box;
+/* In the base layer so Tailwind utilities can override these resets. */
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    min-height: 100vh;
+    color: var(--foreground);
+    background-color: var(--background);
+    font-family: var(--font-family-sans);
+    margin: 0;
+    transition:
+      background-color 0.3s ease,
+      color 0.3s ease;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  ::selection {
+    background: rgba(59, 130, 246, 0.18);
+  }
+
+  main {
+    isolation: isolate;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
 }
 
-html {
-  scroll-behavior: smooth;
+/* ---- Shared surfaces ---- */
+
+/* In the components layer so utilities (hidden, mt-*) still win. */
+@layer components {
+  .card {
+    border-radius: 20px;
+    background: var(--card);
+    transition: background-color 0.3s ease;
+  }
+
+  .eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border-strong);
+    background: var(--card);
+    color: var(--foreground);
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
+    transition:
+      background-color 0.2s ease,
+      border-color 0.2s ease;
+  }
+
+  .pill:hover {
+    background: var(--hover);
+    border-color: var(--border);
+  }
 }
 
-body {
-  min-height: 100vh;
-  color: var(--foreground);
-  background-color: var(--background);
-  font-family: var(--font-family-sans);
-  margin: 0;
-  transition:
-    background-color 0.3s ease,
-    color 0.3s ease;
+.live-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--live);
+  animation: live-pulse 2.4s ease-out infinite;
 }
 
-a {
+@keyframes live-pulse {
+  0% {
+    box-shadow: 0 0 0 0 var(--live-ring);
+  }
+  70% {
+    box-shadow: 0 0 0 4px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+.result-w {
+  color: var(--win);
+}
+
+.result-l {
+  color: var(--loss);
+}
+
+/* ---- Stat chips (chart legend) ---- */
+
+.stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px 2px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--stat-chip-on-border);
+  background: var(--stat-chip-on-bg);
+  color: var(--stat-label);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  user-select: none;
+  transition: all 0.15s ease;
+}
+
+.stat-chip:hover {
+  box-shadow: inset 0 0 0 999px var(--hover);
+}
+
+.stat-chip svg + svg,
+.stat-chip svg:not(:first-child) {
+  margin-left: 6px;
+}
+
+.stat-chip--off {
+  border-color: var(--divider);
+  background: transparent;
+  color: var(--stat-label-off);
+}
+
+.stat-chip--off svg {
+  opacity: 0.35;
+}
+
+/* ---- Minutes chart ---- */
+
+.mm-chart {
+  --mm-label: 208px;
+  --mm-cell: 38px;
+  --mm-pad: 12px;
+  --mm-cells-width: calc(var(--mm-n) * var(--mm-cell));
+  position: relative;
+  font-size: 12px;
+}
+
+.mm-grid {
+  position: absolute;
+  top: 22px;
+  bottom: 0;
+  left: calc(var(--mm-label) + var(--mm-pad));
+  right: calc(var(--mm-cells-width) + var(--mm-pad));
+  pointer-events: none;
+}
+
+.mm-grid__line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--line-color);
+  opacity: 0.55;
+}
+
+.mm-grid__line:first-child,
+.mm-grid__line:last-child {
+  opacity: 0.12;
+}
+
+.mm-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--mm-label) minmax(0, 1fr) var(--mm-cells-width);
+  align-items: center;
+  height: 28px;
+}
+
+.mm-row--header {
+  height: 26px;
+}
+
+.mm-header-text {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.mm-label {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--line-color-light);
+}
+
+.mm-label__button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: inherit;
-  text-decoration: none;
+  text-align: left;
+  border-radius: 4px;
 }
 
-.player-game-timeline__event-link {
-  cursor: pointer;
-  outline: none;
+.mm-chevron {
+  width: 0;
+  height: 0;
+  flex-shrink: 0;
+  border-left: 4px solid currentColor;
+  border-top: 3.5px solid transparent;
+  border-bottom: 3.5px solid transparent;
+  opacity: 0.45;
+  transition: transform 0.15s ease;
 }
 
-.player-game-timeline__event-link:focus-visible {
-  filter: drop-shadow(0 0 0.25rem var(--focus));
+.mm-row-group--open .mm-chevron {
+  transform: rotate(90deg);
+  opacity: 0.9;
 }
 
-button,
-input,
-textarea,
-select {
-  font: inherit;
+.mm-track {
+  position: relative;
+  height: 28px;
+  margin: 0 var(--mm-pad);
+  cursor: crosshair;
 }
 
-::selection {
-  background: rgba(59, 130, 246, 0.18);
+.mm-row--header .mm-track,
+.mm-row--summary .mm-track {
+  height: 26px;
+  cursor: default;
 }
 
-main {
-  isolation: isolate;
+.mm-row--summary .mm-track {
+  height: 28px;
+}
+
+.mm-track > svg {
+  display: block;
+  overflow: visible;
+}
+
+.mm-period {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.mm-line {
+  stroke: var(--line-color-light);
+  stroke-width: 1.5;
+  transition: stroke 0.2s ease;
+}
+
+.mm-heat {
+  fill: var(--line-color-light);
+}
+
+.mm-marker {
+  transition: opacity 0.18s ease;
+}
+
+.mm-chart[data-emph] .mm-marker {
+  opacity: 0.14;
+}
+
+.mm-chart[data-emph="0"] .mm-marker[data-stat="0"],
+.mm-chart[data-emph="1"] .mm-marker[data-stat="1"],
+.mm-chart[data-emph="2"] .mm-marker[data-stat="2"],
+.mm-chart[data-emph="3"] .mm-marker[data-stat="3"],
+.mm-chart[data-emph="4"] .mm-marker[data-stat="4"],
+.mm-chart[data-emph="5"] .mm-marker[data-stat="5"],
+.mm-chart[data-emph="6"] .mm-marker[data-stat="6"],
+.mm-chart[data-emph="7"] .mm-marker[data-stat="7"] {
+  opacity: 1;
+}
+
+.mm-cells {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: var(--mm-cell);
+  align-items: stretch;
+  height: 100%;
+  font-variant-numeric: tabular-nums;
+  color: var(--copy);
+}
+
+.mm-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mm-cell--highlight {
+  background: var(--highlight-col);
+  font-weight: 600;
+  color: var(--heading);
+}
+
+.mm-row--header .mm-cell--highlight {
+  background: var(--highlight-col-header);
+  border-radius: 4px 4px 0 0;
+}
+
+.mm-row--summary {
+  border-bottom: 1px solid var(--divider);
+}
+
+.mm-row--summary .mm-label {
+  font-weight: 600;
+  color: var(--heading);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mm-row-group:hover .mm-line {
+    stroke: var(--playline-hover);
+  }
+
+  .mm-row-group:hover > .mm-row > .mm-label {
+    color: var(--playline-hover);
+  }
+}
+
+.mm-row-group--open > .mm-row > .mm-label {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.mm-details {
+  position: relative;
+  z-index: 1;
+  margin: 2px 0 10px;
+  padding: 10px 12px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--card);
+}
+
+.mm-tooltip {
+  position: absolute;
+  bottom: calc(100% - 2px);
+  z-index: 20;
+  width: max-content;
+  max-width: min(300px, 78vw);
+  padding: 7px 10px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--tooltip);
+  box-shadow: 0 6px 20px var(--tooltip-shadow);
+  pointer-events: none;
+  cursor: default;
+  transform: translateX(-50%);
+}
+
+.mm-tooltip--start {
+  transform: translateX(-14px);
+}
+
+.mm-tooltip--end {
+  transform: translateX(calc(-100% + 14px));
+}
+
+.mm-tooltip--pinned {
+  pointer-events: auto;
+  border-color: var(--stat-chip-on-border);
+}
+
+.mm-tooltip__hint {
+  margin-top: 4px;
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+@media (hover: none) {
+  .mm-tooltip__hint {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .mm-chart {
+    --mm-label: 104px;
+    --mm-cell: 30px;
+    --mm-pad: 8px;
+    --mm-cells-width: calc(var(--mm-n-sm) * var(--mm-cell));
+    font-size: 11px;
+  }
+
+  .mm-cell:not(.mm-cell--primary) {
+    display: none;
+  }
+
+  /* The track is too narrow to centre a tooltip on the play; pin it to the
+     track's right edge so it always fits the screen. */
+  .mm-tooltip,
+  .mm-tooltip--start,
+  .mm-tooltip--end {
+    left: auto !important;
+    right: -8px;
+    max-width: calc(100vw - 48px);
+    transform: none;
+  }
+}
+
+/* ---- Box score tables ---- */
+
+.box-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.box-table th,
+.box-table td {
+  padding: 5px 8px;
+  text-align: center;
+}
+
+.box-table th:first-child,
+.box-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  text-align: left;
+}
+
+.box-table thead th {
+  background: var(--table-header);
+  border-bottom: 2px solid var(--divider);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--heading);
+}
+
+.box-table tbody tr:nth-child(odd) td {
+  background: var(--table-odd);
+}
+
+.box-table tbody tr:nth-child(even) td {
+  background: var(--table-even);
+}
+
+.box-table tbody tr:hover td {
+  background: var(--table-hover);
+}
+
+.box-table td {
+  color: var(--copy);
+}
+
+.box-table td:first-child {
+  color: var(--foreground);
+}
+
+.box-table thead th.box-hl {
+  background: linear-gradient(var(--highlight-col-header), var(--highlight-col-header)),
+    var(--table-header);
+}
+
+.box-table tbody td.box-hl {
+  font-weight: 600;
+  color: var(--heading);
+  box-shadow: inset 0 0 0 999px var(--highlight-col);
+}
+
+.box-table tfoot td {
+  border-top: 2px solid var(--divider);
+  background: var(--table-header);
+  font-weight: 600;
+  color: var(--heading);
+}
+
+.box-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-weight: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-dot {
+    animation: none;
+  }
+
+  * {
+    transition-duration: 0s !important;
+  }
 }
 
 .dark-mode-toggle {
@@ -230,4 +778,97 @@ main {
   box-shadow:
     inset 0 2px 4px rgba(0, 0, 0, 0.1),
     0 0 0 3px var(--focus);
+}
+
+/* ---- Team results strip ---- */
+
+.results-strip {
+  position: relative;
+  display: flex;
+  gap: 2px;
+  height: 64px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.results-strip::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: var(--border);
+}
+
+.results-strip__item {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 28px;
+}
+
+.results-strip__link {
+  position: absolute;
+  inset: 0;
+  display: block;
+  border-radius: 3px;
+}
+
+.results-strip__bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  min-height: 3px;
+}
+
+.results-strip__bar--win {
+  bottom: 50%;
+  border-radius: 3px 3px 0 0;
+  background: var(--win-fill);
+}
+
+.results-strip__bar--loss {
+  top: 50%;
+  border-radius: 0 0 3px 3px;
+  background: var(--loss-fill);
+}
+
+.results-strip__link:hover,
+.results-strip__link:focus-visible {
+  background: var(--hover);
+}
+
+.results-strip__tip {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  z-index: 20;
+  display: none;
+  padding: 5px 9px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--tooltip);
+  box-shadow: 0 6px 20px var(--tooltip-shadow);
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.results-strip__tip--start {
+  left: 0;
+  transform: none;
+}
+
+.results-strip__tip--end {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
+.results-strip__link:hover .results-strip__tip,
+.results-strip__link:focus-visible .results-strip__tip {
+  display: block;
 }
