@@ -17,9 +17,13 @@ export function SeasonTypeSelector<TValue extends string>({
   selectedValue,
   onSelect,
 }: SeasonTypeSelectorProps<TValue>) {
+  if (options.length < 2) {
+    return null;
+  }
+
   return (
     <div
-      className="flex w-fit max-w-full overflow-x-auto overflow-y-hidden rounded-full border border-divider bg-card-alt"
+      className="flex w-fit max-w-full overflow-x-auto rounded-full border border-border-strong bg-card-alt p-0.5"
       role="group"
       aria-label={ariaLabel}
     >
@@ -31,14 +35,17 @@ export function SeasonTypeSelector<TValue extends string>({
             key={option.value}
             type="button"
             onClick={() => onSelect(option)}
-            className={`shrink-0 whitespace-nowrap border-0 px-3 py-1.5 text-[0.72rem] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
+            className={`shrink-0 whitespace-nowrap rounded-full border-0 px-3 py-1 text-xs font-semibold transition-colors ${
               isSelected
                 ? "bg-selected text-heading"
-                : "bg-transparent text-muted hover:bg-hover hover:text-foreground"
+                : "bg-transparent text-muted hover:text-foreground"
             }`}
             aria-pressed={isSelected}
           >
             {option.label}
+            <span className="ml-1.5 font-normal tabular-nums opacity-70">
+              {option.count}
+            </span>
           </button>
         );
       })}

@@ -7,6 +7,29 @@ const s3Client = new S3Client({
   region: process.env.AWS_REGION ?? "us-east-1",
 });
 
+// Optional: read artifacts over HTTPS instead of S3, e.g.
+// PAGE_DATA_BASE_URL=https://minutesmap.com. Meant for local development
+// without AWS credentials; the deployed app reads S3 directly.
+const HTTP_BASE_URL = process.env.PAGE_DATA_BASE_URL?.replace(/\/+$/, "");
+
+// Fetches an object over HTTPS. The CDN answers a missing key with 403 or 404.
+async function getHttpObject(key: string) {
+  const response = await fetch(`${HTTP_BASE_URL}/${key}`, { cache: "no-store" });
+
+  if (response.status === 403 || response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    throw new Error(`Reading ${key} over HTTP failed with ${response.status}`);
+  }
+
+  const bytes = Buffer.from(await response.arrayBuffer());
+  // fetch already inflates Content-Encoding: gzip; only inflate raw gzip bytes.
+  const isGzip = bytes[0] === 0x1f && bytes[1] === 0x8b;
+  return (isGzip ? gunzipSync(bytes) : bytes).toString("utf8");
+}
+
 function getErrorName(error: unknown) {
   return typeof error === "object" && error !== null && "name" in error
     ? String((error as { name?: unknown }).name)
@@ -27,6 +50,10 @@ function isAccessDeniedError(error: unknown) {
 // Returns the decompressed JSON text of a .json.gz object, or null if the
 // object does not exist.
 export async function getGzippedJsonText(key: string) {
+  if (HTTP_BASE_URL) {
+    return getHttpObject(key);
+  }
+
   try {
     const response = await s3Client.send(
       new GetObjectCommand({ Bucket: DATA_BUCKET, Key: key }),
@@ -57,6 +84,14 @@ export type ObjectPresence = "present" | "missing" | "denied";
 // Checks for an object by reading its first byte, which needs only the same
 // s3:GetObject permission as the page reads.
 export async function getObjectPresence(key: string): Promise<ObjectPresence> {
+  if (HTTP_BASE_URL) {
+    const response = await fetch(`${HTTP_BASE_URL}/${key}`, {
+      method: "HEAD",
+      cache: "no-store",
+    });
+    return response.ok ? "present" : "missing";
+  }
+
   try {
     const response = await s3Client.send(
       new GetObjectCommand({ Bucket: DATA_BUCKET, Key: key, Range: "bytes=0-0" }),

@@ -6,12 +6,13 @@ This repo is the frontend slice: team indexes, team season pages, player season 
 
 ## What It Shows
 
+- Player pages built around a season map: one row per game, a line while the player was on the floor and a symbol for every shot, rebound, assist, turnover, block, steal and foul. Hover a play for the detail and the score at the time, pin it for the nba.com video link, open a game for its box score.
+- A "typical rotation" strip on each player page showing how often the player is on the floor at each point of a game.
+- Team pages with record splits, a results-by-game strip, upcoming games, sortable roster averages, and a minutes map for any game (every player on the game clock).
+- A home page with conference standings, and a header search for any team or player (press `/`).
 - Multiple seasons: `/teams/BOS` and `/players/{id}` show the latest season, `/teams/BOS/2025-26` a specific one, with a season switcher on each page.
-- Team pages with schedule/results, roster output, season-type filters, and live game overlays.
-- Player pages with season splits, per-game box scores, event timelines, and live game insertion when the player appears in the active box score.
-- Static generation for team and player pages backed by compressed JSON artifacts in S3.
-- On-demand revalidation endpoints so the data pipeline can refresh affected pages after games finalize.
-- Live game reads scoped to active games, avoiding constant polling across every team or player page.
+- Live game overlays on team and player pages, polled only while a game is in progress.
+- Static generation backed by compressed JSON artifacts in S3, with on-demand revalidation from the data pipeline.
 
 ## Technical Notes
 
@@ -29,6 +30,8 @@ npm run dev
 
 The dev server runs on [http://localhost:4000](http://localhost:4000).
 
+Data is read from S3 with your AWS credentials. To work without them, create `.env.local` with `PAGE_DATA_BASE_URL=https://minutesmap.com` to read the same artifacts over the public CDN.
+
 Useful checks:
 
 ```bash
@@ -40,6 +43,7 @@ npm run build
 ## Repo Structure
 
 - `src/app` Next.js routes, API routes, layouts, and pages.
-- `src/components` team/player views, tables, filters, timelines, and shared UI.
-- `src/lib` S3 data loaders, data types, and URL helpers.
+- `src/components` team/player views, tables, filters, and shared UI; `src/components/chart` is the minutes chart.
+- `src/hooks` live-game polling.
+- `src/lib` S3 data loaders, data types, play-by-play classification, and team metadata.
 - `public` static assets.

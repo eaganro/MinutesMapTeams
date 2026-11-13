@@ -3,6 +3,7 @@ import Script from "next/script";
 import "./globals.css";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { siteConfig } from "@/lib/site-config";
 
 const themeInitScript = `(function () {
   const root = document.documentElement;
@@ -33,11 +34,18 @@ const themeInitScript = `(function () {
 })();`;
 
 export const metadata: Metadata = {
+  metadataBase: new URL(siteConfig.url),
   title: {
-    default: "Minutes Map Teams",
-    template: "%s | Minutes Map Teams",
+    default: "MinutesMap Teams: NBA seasons, minute by minute",
+    template: "%s | MinutesMap",
   },
-  description: "An NBA team hub built with Next.js and Tailwind CSS.",
+  description: siteConfig.description,
+  openGraph: {
+    siteName: "MinutesMap",
+    type: "website",
+    images: [{ url: "/logo-140.png", width: 140, height: 140 }],
+  },
+  twitter: { card: "summary" },
 };
 
 export default function RootLayout({
