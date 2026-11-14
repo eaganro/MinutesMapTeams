@@ -23,6 +23,9 @@ import {
 
 const ROW_HEIGHT = 28;
 const ROW_MID = ROW_HEIGHT / 2;
+// The rotation area runs from HEAT_BASE (no games) up to HEAT_TOP (every game).
+const HEAT_BASE = ROW_HEIGHT - 3;
+const HEAT_TOP = 3;
 const MARKER_SIZE = 4;
 const ACTIVE_MARKER_SIZE = 7;
 // How far (px) the pointer may be from a play and still pick it.
@@ -137,6 +140,125 @@ function PlayTooltip({
       {!pinned && markers.some((marker) => marker.videoUrl) ? (
         <p className="mm-tooltip__hint">Click to pin and get the video link</p>
       ) : null}
+    </div>
+  );
+}
+
+function SummaryRowView({
+  summary,
+  columns,
+  totalSeconds,
+}: {
+  summary: ChartSummary;
+  columns: ChartColumn[];
+  totalSeconds: number;
+}) {
+  const [hover, setHover] = useState<{ elapsed: number; share: number } | null>(null);
+
+  // Follow the pointer with no hover delay, unlike a native <title> tooltip.
+  function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
+    const svg = event.currentTarget.querySelector("svg");
+    const rect = (svg ?? event.currentTarget).getBoundingClientRect();
+    if (rect.width <= 0) {
+      return;
+    }
+    const fraction = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+    const elapsed = Math.min(Math.floor(fraction * totalSeconds), totalSeconds - 1);
+    const bucket = Math.floor(elapsed / summary.bucketSeconds);
+    setHover({ elapsed, share: summary.heat[bucket] ?? 0 });
+  }
+
+  return (
+    <div className="mm-row mm-row--summary" role="row">
+      <div className="mm-label" role="rowheader">
+        {summary.label}
+      </div>
+      <div
+        className="mm-track"
+        role="cell"
+        onPointerMove={handlePointerMove}
+        onPointerLeave={() => setHover(null)}
+      >
+        <svg
+          width="100%"
+          height={ROW_HEIGHT}
+          role="img"
+          aria-label={`Share of ${summary.games} games on court at each point of the game, as an area chart`}
+        >
+          <svg
+            x="0"
+            y="0"
+            width="100%"
+            height={ROW_HEIGHT}
+            viewBox={`0 0 ${totalSeconds} ${ROW_HEIGHT}`}
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            <line
+              className="mm-heat-base"
+              x1={0}
+              x2={totalSeconds}
+              y1={HEAT_BASE}
+              y2={HEAT_BASE}
+              vectorEffect="non-scaling-stroke"
+            />
+            <path
+              className="mm-heat-area"
+              fill="currentColor"
+              fillOpacity={0.35}
+              d={heatPath(summary, totalSeconds, true)}
+            />
+            <path
+              className="mm-heat-edge"
+              fill="none"
+              stroke="currentColor"
+              d={heatPath(summary, totalSeconds, false)}
+              vectorEffect="non-scaling-stroke"
+            />
+          </svg>
+          {hover ? (
+            <line
+              className="mm-heat-cursor"
+              x1={percent(hover.elapsed, totalSeconds)}
+              x2={percent(hover.elapsed, totalSeconds)}
+              y1={HEAT_TOP - 2}
+              y2={HEAT_BASE}
+            />
+          ) : null}
+        </svg>
+        {hover ? (
+          <div
+            className={`mm-tooltip mm-tooltip--${
+              hover.elapsed / totalSeconds < 0.22
+                ? "start"
+                : hover.elapsed / totalSeconds > 0.78
+                  ? "end"
+                  : "center"
+            }`}
+            style={{ left: percent(hover.elapsed, totalSeconds) }}
+          >
+            <div className="text-[11px] font-semibold text-heading">
+              {formatBucket(hover.elapsed)}
+            </div>
+            <div className="mt-0.5 text-[12px] text-foreground">
+              On court in {Math.round(hover.share * 100)}% of {summary.games} games
+            </div>
+          </div>
+        ) : null}
+      </div>
+      <div className="mm-cells">
+        {summary.cells.map((cell, index) => (
+          <span
+            key={columns[index]?.key ?? index}
+            role="cell"
+            className={`mm-cell ${columns[index]?.primary ? "mm-cell--primary" : ""} ${
+              columns[index]?.highlight ? "mm-cell--highlight" : ""
+            }`}
+          >
+            {cell}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
@@ -484,52 +606,7 @@ export function MinutesChart({
         </div>
 
         {summary ? (
-          <div className="mm-row mm-row--summary" role="row">
-            <div className="mm-label" role="rowheader">
-              {summary.label}
-            </div>
-            <div className="mm-track" role="cell">
-              <svg
-                width="100%"
-                height={ROW_HEIGHT}
-                role="img"
-                aria-label={`Share of ${summary.games} games on court at each point of the game`}
-              >
-                {summary.heat.map((share, index) =>
-                  share > 0 && index * summary.bucketSeconds < totalSeconds ? (
-                    <rect
-                      key={index}
-                      className="mm-heat"
-                      x={percent(index * summary.bucketSeconds, totalSeconds)}
-                      width={percent(summary.bucketSeconds, totalSeconds)}
-                      y={ROW_MID - 5}
-                      height={10}
-                      opacity={0.08 + share * 0.82}
-                    >
-                      <title>
-                        {`On court in ${Math.round(share * 100)}% of games at ${formatBucket(
-                          index * summary.bucketSeconds,
-                        )}`}
-                      </title>
-                    </rect>
-                  ) : null,
-                )}
-              </svg>
-            </div>
-            <div className="mm-cells">
-              {summary.cells.map((cell, index) => (
-                <span
-                  key={columns[index]?.key ?? index}
-                  role="cell"
-                  className={`mm-cell ${columns[index]?.primary ? "mm-cell--primary" : ""} ${
-                    columns[index]?.highlight ? "mm-cell--highlight" : ""
-                  }`}
-                >
-                  {cell}
-                </span>
-              ))}
-            </div>
-          </div>
+          <SummaryRowView summary={summary} columns={columns} totalSeconds={totalSeconds} />
         ) : null}
 
         {rows.map((row) => (
@@ -563,41 +640,84 @@ function formatBucket(elapsed: number) {
   return `${formatPeriodLabel(period)} ${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
-// Share of games on court per time bucket, for the summary row.
+// SVG path (in seconds by pixels) through the bucket centres; closed down to
+// the baseline for the fill, open for the top edge.
+function heatPath(summary: ChartSummary, totalSeconds: number, closed: boolean) {
+  const { heat, bucketSeconds } = summary;
+  const points: string[] = [];
+  const y = (share: number) => (HEAT_BASE - share * (HEAT_BASE - HEAT_TOP)).toFixed(2);
+
+  for (let index = 0; index < heat.length; index += 1) {
+    const start = index * bucketSeconds;
+    if (start >= totalSeconds) {
+      break;
+    }
+    if (index === 0) {
+      points.push(`0,${y(heat[0])}`);
+    }
+    points.push(`${Math.min(start + bucketSeconds / 2, totalSeconds)},${y(heat[index])}`);
+  }
+
+  const last = heat[Math.min(heat.length, Math.ceil(totalSeconds / bucketSeconds)) - 1] ?? 0;
+  points.push(`${totalSeconds},${y(last)}`);
+
+  const line = `M${points.join("L")}`;
+  return closed ? `${line}L${totalSeconds},${HEAT_BASE}L0,${HEAT_BASE}Z` : line;
+}
+
+// Share of games on court per time bucket, for the summary row. Uses exact
+// on-court time per bucket, lightly smoothed within each period.
 export function buildRotationHeat(
   timelines: GameTimeline[],
   periodCount: number,
-  bucketSeconds = 30,
+  bucketSeconds = 15,
+  smoothBuckets = 1,
 ) {
   const totalSeconds = getGameTotalSeconds(periodCount);
   const bucketCount = Math.ceil(totalSeconds / bucketSeconds);
-  const counts = new Array<number>(bucketCount).fill(0);
+  const covered = new Array<number>(bucketCount).fill(0);
   const played = timelines.filter((timeline) => timeline.segments.length > 0);
 
   for (const timeline of played) {
-    const seen = new Set<number>();
-
     for (const segment of timeline.segments) {
-      const first = Math.floor(segment.startElapsed / bucketSeconds);
-      const last = Math.ceil(segment.endElapsed / bucketSeconds) - 1;
+      const first = Math.max(0, Math.floor(segment.startElapsed / bucketSeconds));
+      const last = Math.min(bucketCount - 1, Math.ceil(segment.endElapsed / bucketSeconds) - 1);
 
-      for (let bucket = first; bucket <= last && bucket < bucketCount; bucket += 1) {
-        // Count a bucket when the player covered at least half of it.
+      for (let bucket = first; bucket <= last; bucket += 1) {
         const bucketStart = bucket * bucketSeconds;
         const overlap =
           Math.min(segment.endElapsed, bucketStart + bucketSeconds) -
           Math.max(segment.startElapsed, bucketStart);
-        if (overlap >= bucketSeconds / 2 && !seen.has(bucket)) {
-          seen.add(bucket);
-          counts[bucket] += 1;
+        if (overlap > 0) {
+          covered[bucket] += overlap / bucketSeconds;
         }
       }
     }
   }
 
-  return {
-    heat: counts.map((count) => (played.length ? count / played.length : 0)),
-    bucketSeconds,
-    games: played.length,
-  };
+  const raw = covered.map((value) => (played.length ? Math.min(1, value / played.length) : 0));
+  const periods = raw.map((_, bucket) => {
+    let period = 1;
+    while (
+      bucket * bucketSeconds >=
+      getPeriodStartSeconds(period) + getPeriodDurationSeconds(period)
+    ) {
+      period += 1;
+    }
+    return period;
+  });
+  const heat = raw.map((_, bucket) => {
+    let sum = 0;
+    let count = 0;
+    for (let offset = -smoothBuckets; offset <= smoothBuckets; offset += 1) {
+      const other = bucket + offset;
+      if (other >= 0 && other < bucketCount && periods[other] === periods[bucket]) {
+        sum += raw[other];
+        count += 1;
+      }
+    }
+    return count ? sum / count : 0;
+  });
+
+  return { heat, bucketSeconds, games: played.length };
 }

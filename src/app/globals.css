@@ -458,8 +458,28 @@
   transition: stroke 0.2s ease;
 }
 
-.mm-heat {
-  fill: var(--line-color-light);
+.mm-heat-area {
+  fill: var(--team, var(--line-color-light));
+  fill-opacity: 0.35;
+}
+
+.mm-heat-edge {
+  fill: none;
+  stroke: var(--team, var(--line-color-light));
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+.mm-heat-base {
+  stroke: var(--border, currentColor);
+  stroke-width: 1;
+}
+
+.mm-heat-cursor {
+  stroke: var(--foreground);
+  stroke-width: 1;
+  stroke-opacity: 0.5;
+  pointer-events: none;
 }
 
 .mm-marker {

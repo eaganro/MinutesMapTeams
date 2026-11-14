@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 import "./globals.css";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
@@ -7,15 +6,15 @@ import { siteConfig } from "@/lib/site-config";
 
 const themeInitScript = `(function () {
   const root = document.documentElement;
-  const stored = localStorage.getItem("darkMode");
-  let isDark;
+  let isDark = null;
 
-  if (stored !== null) {
-    try {
+  try {
+    const stored = localStorage.getItem("darkMode");
+    if (stored !== null) {
       isDark = JSON.parse(stored);
-    } catch {
-      isDark = null;
     }
+  } catch {
+    isDark = null;
   }
 
   if (typeof isDark !== "boolean") {
@@ -55,12 +54,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full" suppressHydrationWarning>
+      <head>
+        {/* A plain blocking script, not next/script: beforeInteractive defers
+            inline scripts to the Next runtime, so the page paints light first. */}
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body className="min-h-full bg-background text-foreground antialiased">
-        <Script
-          id="theme-init"
-          strategy="beforeInteractive"
-          dangerouslySetInnerHTML={{ __html: themeInitScript }}
-        />
         <div className="min-h-screen px-4 py-2 sm:px-6 lg:px-8">
           <SiteHeader />
           {children}
