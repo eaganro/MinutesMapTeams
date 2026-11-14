@@ -1,8 +1,9 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
-import { EventIcon } from "@/components/chart/event-shapes";
+import { LatestDay } from "@/components/latest-day";
 import { TeamLogo } from "@/components/team-logo";
 import { formatRecord } from "@/lib/format";
+import { getGameDay, getLatestGameDate } from "@/lib/game-days";
 import { getLeagueIndex, type LeagueTeam } from "@/lib/league-data";
 import { siteConfig } from "@/lib/site-config";
 import {
@@ -11,7 +12,6 @@ import {
   TEAM_ABBREVIATIONS,
   type Conference,
 } from "@/lib/teams";
-import { EVENT_LABELS, EVENT_TYPES } from "@/lib/timeline";
 
 const CONFERENCES: Conference[] = ["East", "West"];
 
@@ -70,6 +70,8 @@ function TeamRow({ team, rank }: { team: LeagueTeam; rank: number | null }) {
 export async function TeamIndex() {
   // Standings are a nicety: without them the page is still a team directory.
   const league = await getLeagueIndex().catch(() => null);
+  const latestDate = league ? await getLatestGameDate().catch(() => null) : null;
+  const latestDay = latestDate ? await getGameDay(latestDate).catch(() => null) : null;
   const teams: LeagueTeam[] =
     league?.teams ??
     TEAM_ABBREVIATIONS.map((abbr) => ({
@@ -85,35 +87,11 @@ export async function TeamIndex() {
 
   return (
     <main className="mx-auto flex w-full max-w-[1235px] flex-col gap-5 pb-10">
-      <section className="card px-4 py-6 sm:px-6 sm:py-7">
-        <h1 className="max-w-[24ch] text-3xl font-semibold leading-tight tracking-[-0.03em] text-foreground sm:text-4xl">
-          Every NBA season, mapped minute by minute.
-        </h1>
-        <p className="mt-3 max-w-[68ch] text-[15px] leading-relaxed text-copy">
-          A minutes map draws a line while a player is on the floor and a
-          symbol for each play they make. Team pages map every game; player
-          pages stack a whole season so you can see a rotation, a hot quarter
-          or a slump at a glance. Live games are on{" "}
-          <a href={siteConfig.gamesUrl} className="font-semibold text-link hover:underline">
-            minutesmap.com
-          </a>
-          .
-        </p>
-        <ul className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs font-medium text-copy">
-          <li className="flex items-center gap-1.5">
-            <svg width="26" height="16" aria-hidden="true">
-              <line x1="1" x2="25" y1="8" y2="8" stroke="var(--line-color-light)" strokeWidth="1.5" />
-            </svg>
-            On the floor
-          </li>
-          {EVENT_TYPES.map((eventType) => (
-            <li key={eventType} className="flex items-center gap-1">
-              <EventIcon eventType={eventType} />
-              {EVENT_LABELS[eventType]}
-            </li>
-          ))}
-        </ul>
-      </section>
+      {latestDay ? (
+        <LatestDay day={latestDay} />
+      ) : (
+        <h1 className="sr-only">{siteConfig.name}: NBA standings</h1>
+      )}
 
       <div className="grid gap-5 lg:grid-cols-2">
         {CONFERENCES.map((conference) => {

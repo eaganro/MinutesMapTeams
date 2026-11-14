@@ -78,9 +78,11 @@ Current live gamepacks include player `stats.oreb` and `stats.dreb`, but may not
 
 Player pages only show a temporary live row if the player appears in the live box score. Do not show inactive/DNP placeholders unless the user asks for that behavior.
 
-## Home Page And Search
+## Home Page, Game Days And Search
 
-`src/lib/league-data.ts` reads all 30 team artifacts to build standings and a player directory, cached for an hour with `unstable_cache`. The home page and `/api/search` both use it. It is deliberately not tied to `/api/revalidate`.
+`src/lib/league-data.ts` reads all 30 team artifacts to build standings, a player directory and the current season's game dates, cached for an hour with `unstable_cache`. The home page and `/api/search` both use it. It is deliberately not tied to `/api/revalidate`.
+
+`/days/{date}` shows a game day's best individual games by game score, each as a minutes map row (top 10, expandable to 30). The home page shows the latest day's top 6, one per team, and links to it. `src/lib/game-days.ts` builds a day from that season's team artifacts plus the day's gamepacks, and caches it forever once every game is final and every read succeeded; an incomplete build is shown but not cached. A day only counts once all of its games are final (`src/lib/game-dates.ts`), so today's slate is not shown while games are in progress. A live version is a possible later addition; it should poll one cached server aggregate, not every gamepack per viewer.
 
 ## Local Data Without AWS Credentials
 
