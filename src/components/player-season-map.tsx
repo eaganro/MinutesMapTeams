@@ -277,6 +277,7 @@ export function PlayerSeasonMap({
       .filter((_, index) => filteredGames[index].result !== null)
       .map((row) => row.timeline),
     periodCount,
+    finishedGames.every((game) => typeof game.periods === "number"),
   );
 
   return (

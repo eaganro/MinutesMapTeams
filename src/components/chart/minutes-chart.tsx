@@ -682,6 +682,10 @@ function heatPath(summary: ChartSummary, totalSeconds: number, closed: boolean) 
 export function buildRotationHeat(
   timelines: GameTimeline[],
   periodCount: number,
+  // Only when every game's real period count is known: a timeline that infers
+  // it from the player's own stints cannot tell an overtime he sat out from
+  // regulation, which would put him on court in 100% of overtimes.
+  overtimeGamesOnly: boolean,
   bucketSeconds = 15,
   smoothBuckets = 1,
 ) {
@@ -717,8 +721,10 @@ export function buildRotationHeat(
     }
     return period;
   });
-  const bucketGames = periods.map(
-    (period) => played.filter((timeline) => timeline.periodCount >= period).length,
+  const bucketGames = periods.map((period) =>
+    overtimeGamesOnly
+      ? played.filter((timeline) => timeline.periodCount >= period).length
+      : played.length,
   );
   const raw = covered.map((value, bucket) =>
     bucketGames[bucket] ? Math.min(1, value / bucketGames[bucket]) : 0,
