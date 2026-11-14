@@ -29,6 +29,17 @@ const COLUMNS: ChartColumn[] = [
   { key: "pm", label: "+/-" },
 ];
 
+// Mirrors .mm-row--header and .mm-row in globals.css.
+const CHART_HEADER_HEIGHT = 26;
+const CHART_ROW_HEIGHT = 28;
+
+// The minutes map has a row for everyone who played, which the artifact's box
+// score already knows before the gamepack loads.
+function getLoadingChartHeight(game: TeamGame) {
+  const played = game.players.filter((player) => (player.box.seconds ?? 0) > 0).length;
+  return CHART_HEADER_HEIGHT + Math.max(played, 1) * CHART_ROW_HEIGHT;
+}
+
 type TeamGameChartProps = {
   game: TeamGame;
   teamAbbr: string;
@@ -131,11 +142,20 @@ export function TeamGameChart({
           />
           <StatChips toggles={toggles} />
         </>
+      ) : status === "loading" ? (
+        <>
+          {/* Holds the minutes map's height so nothing shifts when it arrives. */}
+          <div
+            className="flex items-center justify-center rounded-xl bg-card-alt text-[13px] text-muted"
+            style={{ height: getLoadingChartHeight(game) }}
+          >
+            Loading play-by-play…
+          </div>
+          <StatChips toggles={toggles} />
+        </>
       ) : (
         <p className="rounded-xl bg-card-alt px-4 py-5 text-center text-[13px] text-muted">
-          {status === "loading"
-            ? "Loading play-by-play…"
-            : "Play-by-play is not available for this game."}
+          Play-by-play is not available for this game.
         </p>
       )}
 

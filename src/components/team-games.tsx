@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import {
   SeasonTypeSelector,
   type SeasonTypeSelectorOption,
@@ -26,6 +26,20 @@ import { getTeamNickname } from "@/lib/teams";
 
 const INITIAL_COMPLETED_COUNT = 10;
 const INITIAL_UPCOMING_COUNT = 3;
+// Gap kept between an opened game and the edge of the screen.
+const REVEAL_MARGIN = 8;
+
+// Snap just far enough to show an opened game, but never past its own row.
+function revealGame(item: HTMLElement) {
+  const rect = item.getBoundingClientRect();
+  const shift = Math.min(
+    rect.top - REVEAL_MARGIN,
+    rect.bottom - (window.innerHeight - REVEAL_MARGIN),
+  );
+  if (shift > 0) {
+    window.scrollBy({ top: shift, behavior: "instant" });
+  }
+}
 
 type GameFilter = "all" | "regular" | "playoffs" | "other";
 
@@ -123,13 +137,51 @@ function GameRow({
   showSeasonType: boolean;
 }) {
   const { gamepack, status } = useGamepack(isOpen ? game.gameId : null);
+  const itemRef = useRef<HTMLLIElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  // Viewport top of this row when it was clicked. Opening it closes any open
+  // game above, which would pull this row up; restore its position so it stays
+  // under the pointer.
+  const clickedTop = useRef<number | null>(null);
+  // Set when the row is opened by a click (not the game open on page load), so
+  // the game is snapped into view. Both run before paint, so the game above
+  // closing and the snap show up as one change.
+  const revealPending = useRef(false);
+
+  useLayoutEffect(() => {
+    const before = clickedTop.current;
+    clickedTop.current = null;
+    const button = buttonRef.current;
+    if (before !== null && button) {
+      const shift = button.getBoundingClientRect().top - before;
+      if (Math.abs(shift) > 1) {
+        window.scrollBy({ top: shift, behavior: "instant" });
+      }
+    }
+
+    if (!isOpen) {
+      revealPending.current = false;
+      return;
+    }
+    if (revealPending.current && itemRef.current) {
+      revealGame(itemRef.current);
+      // The minutes map grows when the play-by-play arrives; check once more
+      // then, in case the game no longer fits.
+      revealPending.current = status === "loading";
+    }
+  }, [isOpen, status]);
 
   return (
-    <li className={`rounded-xl ${isOpen ? "bg-card-alt" : ""}`}>
+    <li ref={itemRef} className={`rounded-xl ${isOpen ? "bg-card-alt" : ""}`}>
       <button
+        ref={buttonRef}
         type="button"
         aria-expanded={isOpen}
-        onClick={onToggle}
+        onClick={() => {
+          clickedTop.current = buttonRef.current?.getBoundingClientRect().top ?? null;
+          revealPending.current = !isOpen;
+          onToggle();
+        }}
         className="flex h-11 w-full items-center gap-2 rounded-xl sm:gap-3 border-0 bg-transparent px-2 text-left text-sm transition-colors hover:bg-hover sm:px-3"
       >
         <GameDate game={game} />
