@@ -62,6 +62,9 @@ export type ChartSummary = {
   cells: ReactNode[];
   // Share of games (0-1) the player was on court in each bucket.
   heat: number[];
+  // Games that reached each bucket's period: all games in regulation, only
+  // the games that went that far in overtime.
+  bucketGames: number[];
   bucketSeconds: number;
   games: number;
 };
@@ -153,7 +156,11 @@ function SummaryRowView({
   columns: ChartColumn[];
   totalSeconds: number;
 }) {
-  const [hover, setHover] = useState<{ elapsed: number; share: number } | null>(null);
+  const [hover, setHover] = useState<{
+    elapsed: number;
+    share: number;
+    games: number;
+  } | null>(null);
 
   // Follow the pointer with no hover delay, unlike a native <title> tooltip.
   function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
@@ -165,7 +172,11 @@ function SummaryRowView({
     const fraction = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
     const elapsed = Math.min(Math.floor(fraction * totalSeconds), totalSeconds - 1);
     const bucket = Math.floor(elapsed / summary.bucketSeconds);
-    setHover({ elapsed, share: summary.heat[bucket] ?? 0 });
+    setHover({
+      elapsed,
+      share: summary.heat[bucket] ?? 0,
+      games: summary.bucketGames[bucket] ?? 0,
+    });
   }
 
   return (
@@ -241,7 +252,8 @@ function SummaryRowView({
               {formatBucket(hover.elapsed)}
             </div>
             <div className="mt-0.5 text-[12px] text-foreground">
-              On court in {Math.round(hover.share * 100)}% of {summary.games} games
+              On court in {Math.round(hover.share * 100)}% of {hover.games}{" "}
+              {hover.games === 1 ? "game" : "games"}
             </div>
           </div>
         ) : null}
@@ -695,8 +707,7 @@ export function buildRotationHeat(
     }
   }
 
-  const raw = covered.map((value) => (played.length ? Math.min(1, value / played.length) : 0));
-  const periods = raw.map((_, bucket) => {
+  const periods = covered.map((_, bucket) => {
     let period = 1;
     while (
       bucket * bucketSeconds >=
@@ -706,6 +717,12 @@ export function buildRotationHeat(
     }
     return period;
   });
+  const bucketGames = periods.map(
+    (period) => played.filter((timeline) => timeline.periodCount >= period).length,
+  );
+  const raw = covered.map((value, bucket) =>
+    bucketGames[bucket] ? Math.min(1, value / bucketGames[bucket]) : 0,
+  );
   const heat = raw.map((_, bucket) => {
     let sum = 0;
     let count = 0;
@@ -719,5 +736,5 @@ export function buildRotationHeat(
     return count ? sum / count : 0;
   });
 
-  return { heat, bucketSeconds, games: played.length };
+  return { heat, bucketGames, bucketSeconds, games: played.length };
 }

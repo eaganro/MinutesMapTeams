@@ -74,6 +74,9 @@ export type PlayerGame = {
   result: "W" | "L" | "T";
   teamScore: number;
   oppScore: number;
+  // Periods the game lasted (5+ with overtime), whether or not the player
+  // was on court for all of them. Missing on artifacts built before it existed.
+  periods?: number;
   teamId: number;
   teamAbbr: string;
   teamName: string;

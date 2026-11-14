@@ -241,6 +241,7 @@ export function PlayerSeasonMap({
       segments: game.detail?.segments,
       nbaGameId: game.nbaGameId,
       season: game.season,
+      periods: game.periods,
     }),
     cells: [
       formatWholeMinutes(game.box),

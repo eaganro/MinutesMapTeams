@@ -408,11 +408,15 @@ export function buildGameTimeline({
   segments,
   nbaGameId,
   season,
+  periods,
 }: {
   actions?: PlayerGameAction[];
   segments?: PlayerGameSegment[];
   nbaGameId?: string;
   season?: string;
+  // The game's own period count, when known; otherwise inferred from the
+  // player's plays and stints, which misses an overtime he sat out.
+  periods?: number;
 }): GameTimeline {
   const normalized = (actions ?? []).flatMap((action) => {
     const result = normalizeAction(action);
@@ -481,6 +485,7 @@ export function buildGameTimeline({
 
   const periodCount = Math.max(
     4,
+    periods ?? 0,
     ...normalized.map((action) => action.period),
     ...timelineSegments.map((segment) => segment.period),
   );
