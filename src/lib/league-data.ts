@@ -1,6 +1,11 @@
 import { unstable_cache } from "next/cache";
 import { getCurrentSeason, getKnownSeasons } from "@/lib/seasons";
-import { getTeamPageData, type TeamRecord } from "@/lib/team-data";
+import {
+  getTeamPageData,
+  type TeamPageData,
+  type TeamRecord,
+} from "@/lib/team-data";
+import { getCompleteGameDates, isFinished } from "@/lib/game-dates";
 import { TEAM_ABBREVIATIONS } from "@/lib/teams";
 
 export type LeagueTeam = {
@@ -29,6 +34,9 @@ export type LeagueIndex = {
   season: string;
   teams: LeagueTeam[];
   players: LeaguePlayer[];
+  // Dates with complete results in the season the index was read from,
+  // oldest first.
+  gameDays: { season: string; dates: string[] } | null;
 };
 
 const EMPTY_RECORD: TeamRecord = { wins: 0, losses: 0, ties: 0 };
@@ -43,6 +51,20 @@ async function loadTeam(teamAbbr: string, seasons: string[]) {
   }
 
   return null;
+}
+
+function getIndexGameDays(teamPages: (TeamPageData | null)[]) {
+  const season = teamPages.find((teamPage) => teamPage)?.season;
+  if (!season) {
+    return null;
+  }
+
+  return {
+    season,
+    dates: getCompleteGameDates(
+      teamPages.filter((teamPage) => teamPage?.season === season),
+    ),
+  };
 }
 
 async function buildLeagueIndex(): Promise<LeagueIndex> {
@@ -80,9 +102,7 @@ async function buildLeagueIndex(): Promise<LeagueIndex> {
       }
     }
 
-    const finished = teamPage.games.filter(
-      (game) => game.played !== false && game.result !== null,
-    );
+    const finished = teamPage.games.filter(isFinished);
     const regular = finished.filter((game) => game.seasonType === "regular");
     const last = finished[finished.length - 1];
     let streak: string | null = null;
@@ -121,12 +141,13 @@ async function buildLeagueIndex(): Promise<LeagueIndex> {
     players: [...players.values()]
       .map(({ id, name, teamAbbr }) => ({ id, name, teamAbbr }))
       .sort((left, right) => left.name.localeCompare(right.name)),
+    gameDays: getIndexGameDays(teamPages),
   };
 }
 
 // Records for all 30 teams plus a player directory, read from the team page
 // artifacts. Thirty reads, so the result is kept for an hour; it backs the
 // home page standings and the search box, neither of which needs to be live.
-export const getLeagueIndex = unstable_cache(buildLeagueIndex, ["league-index"], {
+export const getLeagueIndex = unstable_cache(buildLeagueIndex, ["league-index-v4"], {
   revalidate: 3600,
 });

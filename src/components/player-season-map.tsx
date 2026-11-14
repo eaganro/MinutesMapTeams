@@ -1,8 +1,6 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
-import { BoxTable } from "@/components/box-table";
 import {
   buildRotationHeat,
   MinutesChart,
@@ -10,6 +8,7 @@ import {
   type ChartRow,
 } from "@/components/chart/minutes-chart";
 import { StatChips, useStatToggles } from "@/components/chart/stat-chips";
+import { GameDetails } from "@/components/game-details";
 import {
   SeasonTypeSelector,
   type SeasonTypeSelectorOption,
@@ -23,13 +22,11 @@ import {
   formatAverage,
   formatGameDate,
   formatLongGameDate,
-  formatSeasonTypeLabel,
   formatSigned,
   formatWholeMinutes,
   getSeasonTypeGroup,
   toNumber,
 } from "@/lib/format";
-import { getGamePageUrl } from "@/lib/game-url";
 import {
   buildGamepackPlayerBox,
   getGamepackPlayerFlow,
@@ -157,61 +154,6 @@ function GameLabel({ game }: { game: MapGame }) {
         </span>
       )}
     </span>
-  );
-}
-
-function GameDetails({
-  game,
-  playerName,
-  seasonPathSuffix,
-}: {
-  game: MapGame;
-  playerName: string;
-  seasonPathSuffix: string;
-}) {
-  const gameUrl = getGamePageUrl({
-    date: game.date,
-    homeAway: game.homeAway,
-    teamAbbr: game.teamAbbr,
-    opponentAbbr: game.opponentAbbr,
-  });
-
-  return (
-    <div className="space-y-2.5">
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[13px]">
-        <p className="text-copy">
-          <span className="font-semibold text-foreground">
-            {game.teamAbbr} {game.teamScore}, {game.opponentAbbr} {game.oppScore}
-          </span>{" "}
-          · {game.result ? "Final" : game.liveStatus} ·{" "}
-          {formatLongGameDate(game.date)} · {formatSeasonTypeLabel(game.seasonType)}
-        </p>
-        <div className="flex items-center gap-3 font-semibold">
-          {isTeamAbbreviation(game.teamAbbr) ? (
-            <Link
-              href={`/teams/${game.teamAbbr}${seasonPathSuffix}`}
-              className="text-link hover:underline"
-            >
-              {game.teamAbbr} team page
-            </Link>
-          ) : null}
-          <a href={gameUrl} className="text-link hover:underline">
-            Full game on MinutesMap →
-          </a>
-        </div>
-      </div>
-      <BoxTable
-        ariaLabel={`${playerName} box score`}
-        firstColumnLabel="Game"
-        rows={[
-          {
-            key: game.gameId,
-            name: `${game.homeAway === "home" ? "vs" : "@"} ${game.opponentAbbr}`,
-            box: game.box,
-          },
-        ]}
-      />
-    </div>
   );
 }
 

@@ -50,3 +50,8 @@ export function isKnownSeason(value: string) {
 export function getSeasonPathSuffix(season: string) {
   return season === getCurrentSeason() ? "" : `/${season}`;
 }
+
+// The season a calendar date ("2026-11-12") falls in.
+export function getSeasonForDate(date: string) {
+  return getCurrentSeason(new Date(`${date}T12:00:00Z`));
+}
