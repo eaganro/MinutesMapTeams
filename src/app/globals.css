@@ -20,6 +20,9 @@
   --accent-strong: #111827;
   --accent-foreground: #ffffff;
   --focus: rgba(59, 130, 246, 0.5);
+  --input-bg: #fff;
+  --input-border: #ccc;
+  --input-text: #333;
   --divider: #e5e7eb;
   --footer: #f0f0f0;
   --link: #1d4ed8;
@@ -85,6 +88,9 @@
   --accent-strong: #ffffff;
   --accent-foreground: #111111;
   --focus: rgba(96, 165, 250, 0.5);
+  --input-bg: #2a2a2a;
+  --input-border: #444;
+  --input-text: #e0e0e0;
   --divider: #333333;
   --footer: #181818;
   --link: #93c5fd;
@@ -577,6 +583,13 @@
   }
 }
 
+/* Short labels (a name and a logo) need less room on wide screens. */
+@media (min-width: 641px) {
+  .mm-chart[data-label="compact"] {
+    --mm-label: 168px;
+  }
+}
+
 @media (max-width: 640px) {
   .mm-chart {
     --mm-label: 104px;
@@ -871,4 +884,87 @@
 .results-strip__link:hover .results-strip__tip,
 .results-strip__link:focus-visible .results-strip__tip {
   display: block;
+}
+
+/* Game day picker: mirrors the main site's schedule date picker
+   (front/src/components/Schedule/Schedule.scss). */
+.date-pick {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.date-pick__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  color: var(--copy);
+  transition: background-color 0.15s ease;
+}
+
+.date-pick__button:hover {
+  background-color: var(--hover);
+}
+
+.date-pick__button--disabled {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.date-field {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 132px;
+  height: 30px;
+  padding: 0 8px 0 10px;
+  background-color: var(--input-bg);
+  color: var(--input-text);
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition:
+    background-color 0.3s ease,
+    border-color 0.3s ease,
+    color 0.3s ease;
+}
+
+.date-field:hover {
+  background-color: var(--hover);
+}
+
+.date-field:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.date-field__icon {
+  width: 15px;
+  height: 15px;
+  color: var(--muted);
+}
+
+/* Invisible but on top, so taps and the calendar popup still belong to the
+   native date input. */
+.date-field__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.date-field__input:focus-visible {
+  outline: none;
 }

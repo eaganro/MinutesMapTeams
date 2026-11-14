@@ -27,6 +27,7 @@ const MARKER_SIZE = 4;
 const ACTIVE_MARKER_SIZE = 7;
 // How far (px) the pointer may be from a play and still pick it.
 const PICK_RADIUS = 14;
+const REGULATION_PERIODS = 4;
 
 export type ChartColumn = {
   key: string;
@@ -157,8 +158,10 @@ function ChartRowView({
 }) {
   const [active, setActive] = useState<ActivePlay | null>(null);
   const trackRef = useRef<HTMLDivElement>(null);
+  // With overtime hidden, plays past the end of regulation are left out.
   const markers = row.timeline.markers.filter(
-    (marker) => statOn[marker.statIndex] !== false,
+    (marker) =>
+      statOn[marker.statIndex] !== false && marker.action.elapsed <= totalSeconds,
   );
   const isPinned = active?.pinned ?? false;
 
@@ -281,16 +284,18 @@ function ChartRowView({
             role="img"
             aria-label={`Minutes and plays for ${row.name}`}
           >
-            {row.timeline.segments.map((segment, index) => (
-              <line
-                key={index}
-                className="mm-line"
-                x1={percent(segment.startElapsed, totalSeconds)}
-                x2={percent(segment.endElapsed, totalSeconds)}
-                y1={ROW_MID}
-                y2={ROW_MID}
-              />
-            ))}
+            {row.timeline.segments
+              .filter((segment) => segment.startElapsed < totalSeconds)
+              .map((segment, index) => (
+                <line
+                  key={index}
+                  className="mm-line"
+                  x1={percent(segment.startElapsed, totalSeconds)}
+                  x2={percent(segment.endElapsed, totalSeconds)}
+                  y1={ROW_MID}
+                  y2={ROW_MID}
+                />
+              ))}
             {markers.map((marker, index) => {
               const isActive = active?.elapsed === marker.action.elapsed;
 
@@ -357,6 +362,8 @@ export function MinutesChart({
   ariaLabel,
   defaultOpenKey = null,
   minPeriods = 4,
+  compactLabels = false,
+  collapsibleOvertime = false,
 }: {
   rows: ChartRow[];
   columns: ChartColumn[];
@@ -367,14 +374,27 @@ export function MinutesChart({
   ariaLabel: string;
   defaultOpenKey?: string | null;
   minPeriods?: number;
+  // A narrower label column on wide screens, for short labels.
+  compactLabels?: boolean;
+  // Rows from different games: when only some went to overtime, show
+  // regulation by default so the rest are not squeezed.
+  collapsibleOvertime?: boolean;
 }) {
   const [openKeys, setOpenKeys] = useState<ReadonlySet<string>>(
     () => new Set(defaultOpenKey ? [defaultOpenKey] : []),
   );
-  const periodCount = Math.max(
+  const [showOvertime, setShowOvertime] = useState(false);
+  const fullPeriodCount = Math.max(
     minPeriods,
     ...rows.map((row) => row.timeline.periodCount),
   );
+  const overtimeRows = rows.filter(
+    (row) => row.timeline.periodCount > REGULATION_PERIODS,
+  ).length;
+  const canCollapseOvertime =
+    collapsibleOvertime && overtimeRows > 0 && overtimeRows < rows.length;
+  const periodCount =
+    canCollapseOvertime && !showOvertime ? REGULATION_PERIODS : fullPeriodCount;
   const totalSeconds = getGameTotalSeconds(periodCount);
   const periods = Array.from({ length: periodCount }, (_, index) => index + 1);
   const primaryCount = columns.filter((column) => column.primary).length;
@@ -394,120 +414,137 @@ export function MinutesChart({
   }
 
   return (
-    <div
-      className="mm-chart"
-      style={style}
-      role="table"
-      aria-label={ariaLabel}
-      data-emph={emphasized ?? undefined}
-    >
-      <div className="mm-grid" aria-hidden="true">
-        {periods.map((period) => (
-          <span
-            key={period}
-            className="mm-grid__line"
-            style={{ left: percent(getPeriodStartSeconds(period), totalSeconds) }}
-          />
-        ))}
-        <span className="mm-grid__line" style={{ left: "100%" }} />
-      </div>
-
-      <div className="mm-row mm-row--header" role="row">
-        <div className="mm-label mm-header-text" role="columnheader">
-          {labelHeader}
+    <>
+      {canCollapseOvertime ? (
+        <div className="mb-1.5 flex justify-end">
+          <button
+            type="button"
+            aria-pressed={showOvertime}
+            onClick={() => setShowOvertime((current) => !current)}
+            className="border-0 bg-transparent p-0 text-xs font-semibold text-link hover:underline"
+          >
+            {showOvertime
+              ? "Hide overtime"
+              : `Show overtime (${overtimeRows} ${overtimeRows === 1 ? "row" : "rows"})`}
+          </button>
         </div>
-        <div className="mm-track" role="columnheader" aria-label="Game clock">
+      ) : null}
+      <div
+        className="mm-chart"
+        style={style}
+        role="table"
+        aria-label={ariaLabel}
+        data-emph={emphasized ?? undefined}
+        data-label={compactLabels ? "compact" : undefined}
+      >
+        <div className="mm-grid" aria-hidden="true">
           {periods.map((period) => (
             <span
               key={period}
-              className="mm-period"
-              style={{
-                left: percent(
-                  getPeriodStartSeconds(period) + getPeriodDurationSeconds(period) / 2,
-                  totalSeconds,
-                ),
-              }}
-            >
-              {formatPeriodLabel(period)}
-            </span>
+              className="mm-grid__line"
+              style={{ left: percent(getPeriodStartSeconds(period), totalSeconds) }}
+            />
           ))}
+          <span className="mm-grid__line" style={{ left: "100%" }} />
         </div>
-        <div className="mm-cells">
-          {columns.map((column) => (
-            <span
-              key={column.key}
-              role="columnheader"
-              className={`mm-cell mm-header-text ${column.primary ? "mm-cell--primary" : ""} ${
-                column.highlight ? "mm-cell--highlight" : ""
-              }`}
-            >
-              {column.label}
-            </span>
-          ))}
-        </div>
-      </div>
 
-      {summary ? (
-        <div className="mm-row mm-row--summary" role="row">
-          <div className="mm-label" role="rowheader">
-            {summary.label}
+        <div className="mm-row mm-row--header" role="row">
+          <div className="mm-label mm-header-text" role="columnheader">
+            {labelHeader}
           </div>
-          <div className="mm-track" role="cell">
-            <svg
-              width="100%"
-              height={ROW_HEIGHT}
-              role="img"
-              aria-label={`Share of ${summary.games} games on court at each point of the game`}
-            >
-              {summary.heat.map((share, index) =>
-                share > 0 ? (
-                  <rect
-                    key={index}
-                    className="mm-heat"
-                    x={percent(index * summary.bucketSeconds, totalSeconds)}
-                    width={percent(summary.bucketSeconds, totalSeconds)}
-                    y={ROW_MID - 5}
-                    height={10}
-                    opacity={0.08 + share * 0.82}
-                  >
-                    <title>
-                      {`On court in ${Math.round(share * 100)}% of games at ${formatBucket(
-                        index * summary.bucketSeconds,
-                      )}`}
-                    </title>
-                  </rect>
-                ) : null,
-              )}
-            </svg>
+          <div className="mm-track" role="columnheader" aria-label="Game clock">
+            {periods.map((period) => (
+              <span
+                key={period}
+                className="mm-period"
+                style={{
+                  left: percent(
+                    getPeriodStartSeconds(period) + getPeriodDurationSeconds(period) / 2,
+                    totalSeconds,
+                  ),
+                }}
+              >
+                {formatPeriodLabel(period)}
+              </span>
+            ))}
           </div>
           <div className="mm-cells">
-            {summary.cells.map((cell, index) => (
+            {columns.map((column) => (
               <span
-                key={columns[index]?.key ?? index}
-                role="cell"
-                className={`mm-cell ${columns[index]?.primary ? "mm-cell--primary" : ""} ${
-                  columns[index]?.highlight ? "mm-cell--highlight" : ""
+                key={column.key}
+                role="columnheader"
+                className={`mm-cell mm-header-text ${column.primary ? "mm-cell--primary" : ""} ${
+                  column.highlight ? "mm-cell--highlight" : ""
                 }`}
               >
-                {cell}
+                {column.label}
               </span>
             ))}
           </div>
         </div>
-      ) : null}
 
-      {rows.map((row) => (
-        <ChartRowView
-          key={row.key}
-          row={row}
-          columns={columns}
-          totalSeconds={totalSeconds}
-          statOn={statOn}
-          isOpen={openKeys.has(row.key)}
-          onToggle={() => toggleRow(row.key)}
-        />
-      ))}
-    </div>
+        {summary ? (
+          <div className="mm-row mm-row--summary" role="row">
+            <div className="mm-label" role="rowheader">
+              {summary.label}
+            </div>
+            <div className="mm-track" role="cell">
+              <svg
+                width="100%"
+                height={ROW_HEIGHT}
+                role="img"
+                aria-label={`Share of ${summary.games} games on court at each point of the game`}
+              >
+                {summary.heat.map((share, index) =>
+                  share > 0 && index * summary.bucketSeconds < totalSeconds ? (
+                    <rect
+                      key={index}
+                      className="mm-heat"
+                      x={percent(index * summary.bucketSeconds, totalSeconds)}
+                      width={percent(summary.bucketSeconds, totalSeconds)}
+                      y={ROW_MID - 5}
+                      height={10}
+                      opacity={0.08 + share * 0.82}
+                    >
+                      <title>
+                        {`On court in ${Math.round(share * 100)}% of games at ${formatBucket(
+                          index * summary.bucketSeconds,
+                        )}`}
+                      </title>
+                    </rect>
+                  ) : null,
+                )}
+              </svg>
+            </div>
+            <div className="mm-cells">
+              {summary.cells.map((cell, index) => (
+                <span
+                  key={columns[index]?.key ?? index}
+                  role="cell"
+                  className={`mm-cell ${columns[index]?.primary ? "mm-cell--primary" : ""} ${
+                    columns[index]?.highlight ? "mm-cell--highlight" : ""
+                  }`}
+                >
+                  {cell}
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {rows.map((row) => (
+          <ChartRowView
+            key={row.key}
+            row={row}
+            columns={columns}
+            totalSeconds={totalSeconds}
+            statOn={statOn}
+            isOpen={openKeys.has(row.key)}
+            onToggle={() => toggleRow(row.key)}
+          />
+        ))}
+      </div>
+    </>
   );
 }
 
