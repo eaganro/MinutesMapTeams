@@ -6,11 +6,11 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # Minutes Map Teams Agent Notes
 
-This repo is the Next.js frontend for Minutes Map team and player pages. The data pipeline lives separately in `../BasketballStats`; do not edit that repo unless the user explicitly asks.
+This repo is the Next.js frontend for Minutes Map team and player pages. The data pipeline lives separately in `../MinutesMap`; do not edit that repo unless the user explicitly asks.
 
 ## Related Backend Repo
 
-`../BasketballStats` owns the main MinutesMap product and backend. Its core user-facing feature is the live game experience: high-density live game pages, play-by-play visualization, schedule navigation, and real-time update signaling. It is also responsible for collection and artifact generation:
+`../MinutesMap` owns the main MinutesMap product and backend. Its core user-facing feature is the live game experience: high-density live game pages, play-by-play visualization, schedule navigation, and real-time update signaling. It is also responsible for collection and artifact generation:
 
 - polling NBA schedule, box score, and play-by-play feeds
 - creating and updating `data/gamepack/{GAME_ID}.json.gz`
@@ -22,7 +22,7 @@ This repo is the Next.js frontend for Minutes Map team and player pages. The dat
 - marking team-status games live at game start and clearing them after final page artifacts are written
 - calling this app's `/api/revalidate` endpoint with affected team/player paths
 
-This frontend is a companion app for team and player season pages. It should consume the artifacts and live gamepacks produced by `../BasketballStats` and avoid duplicating that repo's backend or primary live-game responsibilities. If a change requires different artifact contents, write timing, live-game processing, or infrastructure permissions, discuss or modify `../BasketballStats` explicitly rather than adding broad client-side workarounds here.
+This frontend is a companion app for team and player season pages. It should consume the artifacts and live gamepacks produced by `../MinutesMap` and avoid duplicating that repo's backend or primary live-game responsibilities. If a change requires different artifact contents, write timing, live-game processing, or infrastructure permissions, discuss or modify `../MinutesMap` explicitly rather than adding broad client-side workarounds here.
 
 ## Data Model And S3 Paths
 
@@ -50,7 +50,7 @@ Season labels look like `2026-27`. `src/lib/seasons.ts` derives the current seas
 The product's reason to exist is the minutes map: a line while a player is on the floor and a symbol for every play, on a shared game clock. Design decisions should serve it.
 
 - `src/components/chart/minutes-chart.tsx` is the one chart. Player pages feed it one row per game (the season map); team pages feed it one row per player for a single game.
-- `src/lib/timeline.ts` classifies play-by-play into symbols. It mirrors the main site's rules (`front/src/domain/events` and `front/src/ui/eventShapes.jsx` in `../BasketballStats`); keep the two in step so an event looks the same on both sites.
+- `src/lib/timeline.ts` classifies play-by-play into symbols. It mirrors the main site's rules (`front/src/domain/events` and `front/src/ui/eventShapes.jsx` in `../MinutesMap`); keep the two in step so an event looks the same on both sites.
 - Markers are positioned with percentages (nested `<svg x="…%">`), so the chart renders on the server and resizes without measuring. Do not reintroduce width measurement.
 - Colours and tokens in `src/app/globals.css` mirror `front/src/theme.scss`; team colours in `src/lib/teams.ts` mirror `front/src/helpers/teamColors.js`. Team logos in `public/img/teams` are copies of the main site's.
 

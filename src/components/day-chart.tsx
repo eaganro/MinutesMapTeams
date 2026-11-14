@@ -84,8 +84,9 @@ export function DayChart({ players, ariaLabel, initialCount }: DayChartProps) {
         statOn={toggles.statOn}
         emphasized={toggles.emphasized}
         labelHeader="Player"
+        compactLabels
+        collapsibleOvertime
         ariaLabel={ariaLabel}
-        minPeriods={Math.max(4, ...shown.map((player) => player.periodCount))}
       />
       <StatChips toggles={toggles} />
       {canExpand ? (

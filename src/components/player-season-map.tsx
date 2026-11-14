@@ -312,6 +312,7 @@ export function PlayerSeasonMap({
               statOn={toggles.statOn}
               emphasized={toggles.emphasized}
               labelHeader="Game"
+              collapsibleOvertime
               ariaLabel={`${player.name} game-by-game minutes and plays`}
               defaultOpenKey={livePlayerGames[0]?.gameId ?? null}
               summary={

@@ -84,6 +84,14 @@ export function formatLongGameDate(value: string) {
   }).format(toCalendarDate(value));
 }
 
+// "Wed, Nov 4", with the year added outside the current one; matches the
+// main site's schedule date picker.
+export function formatPickerDate(value: string, currentYear = new Date().getFullYear()) {
+  const text = `${formatWeekday(value)}, ${formatGameDate(value)}`;
+  const year = Number(value.slice(0, 4));
+  return year === currentYear ? text : `${text}, ${year}`;
+}
+
 export function formatWeekday(value: string) {
   return new Intl.DateTimeFormat("en-US", {
     weekday: "short",

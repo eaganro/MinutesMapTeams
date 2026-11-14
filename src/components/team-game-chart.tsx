@@ -125,6 +125,7 @@ export function TeamGameChart({
             statOn={toggles.statOn}
             emphasized={toggles.emphasized}
             labelHeader="Player"
+            compactLabels
             ariaLabel={`${teamAbbr} minutes and plays, ${game.date}`}
             minPeriods={Math.max(4, toNumber(gamepack?.flow?.periods))}
           />
