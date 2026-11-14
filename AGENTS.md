@@ -80,7 +80,7 @@ Player pages only show a temporary live row if the player appears in the live bo
 
 ## Home Page, Game Days And Search
 
-`src/lib/league-data.ts` reads all 30 team artifacts to build standings, a player directory and the current season's game dates, cached for an hour with `unstable_cache`. The home page and `/api/search` both use it. It is deliberately not tied to `/api/revalidate`.
+`src/lib/league-data.ts` reads all 30 team artifacts to build standings, a player directory and the current season's game dates, cached for an hour with `unstable_cache`. The home page and `/api/search` both use it. It is deliberately not tied to `/api/revalidate`. Search (`getPlayerDirectory`) also adds players from older seasons' team artifacts, cached for a day, so a player who has not played this season can still be found; he is listed under the team from his newest season.
 
 `/days/{date}` shows a game day's best individual games by game score, each as a minutes map row (top 10, expandable to 30). The home page shows the latest day's top 6, one per team, and links to it. `src/lib/game-days.ts` builds a day from that season's team artifacts plus the day's gamepacks, and caches it forever once every game is final and every read succeeded; an incomplete build is shown but not cached. A day only counts once all of its games are final (`src/lib/game-dates.ts`), so today's slate is not shown while games are in progress. A live version is a possible later addition; it should poll one cached server aggregate, not every gamepack per viewer.
 

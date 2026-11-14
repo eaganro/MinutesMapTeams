@@ -67,6 +67,30 @@ function getIndexGameDays(teamPages: (TeamPageData | null)[]) {
   };
 }
 
+type PlayerTally = Map<number, LeaguePlayer & { games: number }>;
+
+function tallyPlayers(players: PlayerTally, teamPage: TeamPageData, abbr: string) {
+  for (const player of teamPage.players) {
+    const games = player.totals?.games ?? player.games ?? 0;
+    const known = players.get(player.playerId);
+    // A traded player is listed under the team he played more games for.
+    if (!known || games > known.games) {
+      players.set(player.playerId, {
+        id: player.playerId,
+        name: player.name,
+        teamAbbr: abbr,
+        games,
+      });
+    }
+  }
+}
+
+function sortPlayers(players: Iterable<LeaguePlayer>) {
+  return [...players]
+    .map(({ id, name, teamAbbr }) => ({ id, name, teamAbbr }))
+    .sort((left, right) => left.name.localeCompare(right.name));
+}
+
 async function buildLeagueIndex(): Promise<LeagueIndex> {
   const seasons = getKnownSeasons();
   const teamPages = await Promise.all(
@@ -80,7 +104,7 @@ async function buildLeagueIndex(): Promise<LeagueIndex> {
     throw new Error("No team page artifact could be read");
   }
 
-  const players = new Map<number, LeaguePlayer & { games: number }>();
+  const players: PlayerTally = new Map();
 
   const teams = TEAM_ABBREVIATIONS.map((abbr, index): LeagueTeam => {
     const teamPage = teamPages[index];
@@ -88,19 +112,7 @@ async function buildLeagueIndex(): Promise<LeagueIndex> {
       return { abbr, season: null, record: EMPTY_RECORD, streak: null, lastGame: null };
     }
 
-    for (const player of teamPage.players) {
-      const games = player.totals?.games ?? player.games ?? 0;
-      const known = players.get(player.playerId);
-      // A traded player is listed under the team he played more games for.
-      if (!known || games > known.games) {
-        players.set(player.playerId, {
-          id: player.playerId,
-          name: player.name,
-          teamAbbr: abbr,
-          games,
-        });
-      }
-    }
+    tallyPlayers(players, teamPage, abbr);
 
     const finished = teamPage.games.filter(isFinished);
     const regular = finished.filter((game) => game.seasonType === "regular");
@@ -138,9 +150,7 @@ async function buildLeagueIndex(): Promise<LeagueIndex> {
   return {
     season: getCurrentSeason(),
     teams,
-    players: [...players.values()]
-      .map(({ id, name, teamAbbr }) => ({ id, name, teamAbbr }))
-      .sort((left, right) => left.name.localeCompare(right.name)),
+    players: sortPlayers(players.values()),
     gameDays: getIndexGameDays(teamPages),
   };
 }
@@ -151,3 +161,45 @@ async function buildLeagueIndex(): Promise<LeagueIndex> {
 export const getLeagueIndex = unstable_cache(buildLeagueIndex, ["league-index-v4"], {
   revalidate: 3600,
 });
+
+// Everyone who appeared for a team in one season. Used for seasons other than
+// the one the league index reads, which are finished and change rarely.
+const getSeasonPlayers = unstable_cache(
+  async (season: string) => {
+    const players: PlayerTally = new Map();
+    const teamPages = await Promise.all(
+      TEAM_ABBREVIATIONS.map((abbr) => getTeamPageData(abbr, season).catch(() => null)),
+    );
+    teamPages.forEach((teamPage, index) => {
+      if (teamPage) {
+        tallyPlayers(players, teamPage, TEAM_ABBREVIATIONS[index]);
+      }
+    });
+    return sortPlayers(players.values());
+  },
+  ["season-players-v1"],
+  { revalidate: 86400 },
+);
+
+// The header search directory: every player with a page in any known season.
+// A player keeps the team from the newest season he played in, which is also
+// the season his bare /players/{id} URL shows.
+export async function getPlayerDirectory(): Promise<LeaguePlayer[]> {
+  const league = await getLeagueIndex();
+  const players = new Map(league.players.map((player) => [player.id, player]));
+  const olderSeasons = getKnownSeasons().filter(
+    (season) => season !== league.gameDays?.season && season !== league.season,
+  );
+
+  for (const season of olderSeasons) {
+    // A season that cannot be read only leaves its players out of search.
+    const seasonPlayers = await getSeasonPlayers(season).catch(() => []);
+    for (const player of seasonPlayers) {
+      if (!players.has(player.id)) {
+        players.set(player.id, player);
+      }
+    }
+  }
+
+  return sortPlayers(players.values());
+}

@@ -1,10 +1,10 @@
-import { getLeagueIndex } from "@/lib/league-data";
+import { getPlayerDirectory } from "@/lib/league-data";
 
 // The player directory behind the header search box. Small, changes rarely,
 // and is safe to cache at the edge and in the browser for a while.
 export async function GET() {
   try {
-    const { players } = await getLeagueIndex();
+    const players = await getPlayerDirectory();
 
     return Response.json(
       { players },
