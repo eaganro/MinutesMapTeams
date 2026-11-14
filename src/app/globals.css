@@ -940,31 +940,106 @@
   background-color: var(--hover);
 }
 
-.date-field:focus-within {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-}
-
 .date-field__icon {
   width: 15px;
   height: 15px;
   color: var(--muted);
 }
 
-/* Invisible but on top, so taps and the calendar popup still belong to the
-   native date input. */
-.date-field__input {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  opacity: 0;
+.date-field {
   cursor: pointer;
 }
 
-.date-field__input:focus-visible {
-  outline: none;
+.date-field:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* The game day calendar under the date field. */
+.day-calendar {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  z-index: 40;
+  width: 264px;
+  padding: 10px 10px 12px;
+  transform: translateX(-50%);
+  background: var(--tooltip);
+  border: 1px solid var(--divider);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px var(--tooltip-shadow);
+  color: var(--foreground);
+}
+
+.day-calendar__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.day-calendar__month {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--heading);
+}
+
+.day-calendar__nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  color: var(--copy);
+}
+
+.day-calendar__nav:hover:not(:disabled) {
+  background-color: var(--hover);
+}
+
+.day-calendar__nav:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.day-calendar__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.day-calendar__weekday {
+  padding: 4px 0;
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.day-calendar__day {
+  height: 32px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--foreground);
+}
+
+.day-calendar__day:hover:not(:disabled) {
+  background-color: var(--hover);
+}
+
+/* Days without games cannot be picked. */
+.day-calendar__day:disabled {
+  font-weight: 400;
+  color: var(--muted);
+  opacity: 0.45;
+  cursor: default;
+}
+
+.day-calendar__day--selected,
+.day-calendar__day--selected:hover:not(:disabled) {
+  background-color: var(--link);
+  color: var(--card);
 }
