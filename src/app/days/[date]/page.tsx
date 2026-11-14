@@ -3,7 +3,12 @@ import { notFound } from "next/navigation";
 import { DayChart } from "@/components/day-chart";
 import { DayNav } from "@/components/day-nav";
 import { formatLongGameDate } from "@/lib/format";
-import { getGameDay, getSeasonGameDates, isGameDate } from "@/lib/game-days";
+import {
+  getAllGameDates,
+  getGameDay,
+  getSeasonGameDates,
+  isGameDate,
+} from "@/lib/game-days";
 import { getSeasonForDate } from "@/lib/seasons";
 
 const INITIAL_PLAYER_COUNT = 10;
@@ -27,8 +32,11 @@ async function loadDay(date: string) {
     return null;
   }
 
-  const dates = await getSeasonGameDates(getSeasonForDate(date));
-  if (!dates.includes(date)) {
+  const [seasonDates, dates] = await Promise.all([
+    getSeasonGameDates(getSeasonForDate(date)),
+    getAllGameDates(),
+  ]);
+  if (!seasonDates.includes(date)) {
     return null;
   }
 

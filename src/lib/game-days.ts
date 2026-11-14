@@ -9,7 +9,12 @@ import {
   type Gamepack,
 } from "@/lib/live";
 import { getGzippedJson } from "@/lib/s3-json";
-import { getCurrentSeason, getSeasonForDate, isKnownSeason } from "@/lib/seasons";
+import {
+  getCurrentSeason,
+  getKnownSeasons,
+  getSeasonForDate,
+  isKnownSeason,
+} from "@/lib/seasons";
 import { getTeamPageData, type StatLine, type TeamPageData } from "@/lib/team-data";
 import { TEAM_ABBREVIATIONS } from "@/lib/teams";
 import { buildGameTimeline, type GameTimeline } from "@/lib/timeline";
@@ -252,6 +257,14 @@ export async function getSeasonGameDates(season: string): Promise<string[]> {
     }
     return getCompleteGameDates(await readSeasonTeamPages(season));
   }
+}
+
+// Dates with complete results across every season with artifacts, oldest
+// first, so day navigation runs from one season into the next.
+export async function getAllGameDates(): Promise<string[]> {
+  const seasons = [...getKnownSeasons()].reverse();
+  const perSeason = await Promise.all(seasons.map(getSeasonGameDates));
+  return perSeason.flat();
 }
 
 // The most recent date with complete results.
