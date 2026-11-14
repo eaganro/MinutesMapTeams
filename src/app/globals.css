@@ -517,15 +517,11 @@
   justify-content: center;
 }
 
+/* Bold only: with a handful of columns there is nothing to pick them out
+   from, so the box tables' blue column tint is left out here. */
 .mm-cell--highlight {
-  background: var(--highlight-col);
   font-weight: 600;
   color: var(--heading);
-}
-
-.mm-row--header .mm-cell--highlight {
-  background: var(--highlight-col-header);
-  border-radius: 4px 4px 0 0;
 }
 
 .mm-row--summary {
@@ -552,14 +548,37 @@
   font-weight: 600;
 }
 
+/* The open row and its details read as one tinted block. The row's tint is
+   translucent so the period lines still show through it; the details paint
+   the same tint over the card colour, opaque, so the lines stop there. */
+.mm-row-group--open {
+  --mm-open-surface: linear-gradient(var(--hover), var(--hover)), var(--card);
+  margin-bottom: 8px;
+}
+
+/* Equal negative margin and padding let the tint extend past the row without
+   moving its columns out of line with the other rows. */
+.mm-row-group--open > .mm-row {
+  margin-inline: -8px;
+  padding-inline: 8px;
+  border-radius: 10px 10px 0 0;
+  background: var(--hover);
+}
+
 .mm-details {
   position: relative;
   z-index: 1;
-  margin: 2px 0 10px;
-  padding: 10px 12px 12px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--card);
+  margin-inline: -8px;
+  padding: 4px 12px 12px;
+  border-radius: 0 0 10px 10px;
+  background: var(--mm-open-surface);
+}
+
+/* The box score sits on the tint rather than drawing its own panel. */
+.mm-details .box-table {
+  --table-header: var(--mm-open-surface);
+  --table-odd: var(--mm-open-surface);
+  --table-even: var(--mm-open-surface);
 }
 
 .mm-tooltip {
