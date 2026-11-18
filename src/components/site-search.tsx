@@ -72,7 +72,7 @@ function findResults(query: string, players: LeaguePlayer[]): Result[] {
 }
 
 // Jump to any team or player. The player directory is fetched the first time
-// the box is focused, so pages that never search never pay for it.
+// the box is hovered or focused, so pages that never search never pay for it.
 export function SiteSearch() {
   const router = useRouter();
   const listId = useId();
@@ -81,6 +81,7 @@ export function SiteSearch() {
   const requested = useRef(false);
   const [query, setQuery] = useState("");
   const [players, setPlayers] = useState<LeaguePlayer[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const results = findResults(query, players);
@@ -92,12 +93,14 @@ export function SiteSearch() {
     }
 
     requested.current = true;
+    setIsLoading(true);
     fetch("/api/search")
       .then((response) => (response.ok ? response.json() : { players: [] }))
       .then((data: { players?: LeaguePlayer[] }) => setPlayers(data.players ?? []))
       .catch(() => {
         requested.current = false;
-      });
+      })
+      .finally(() => setIsLoading(false));
   }
 
   useEffect(() => {
@@ -150,6 +153,7 @@ export function SiteSearch() {
         autoComplete="off"
         spellCheck={false}
         value={query}
+        onPointerEnter={loadPlayers}
         onFocus={() => {
           loadPlayers();
           setIsOpen(true);
@@ -182,8 +186,7 @@ export function SiteSearch() {
           role="listbox"
           className="absolute right-0 z-30 mt-2 w-full min-w-[260px] overflow-hidden rounded-2xl border border-border bg-tooltip p-1.5 shadow-[0_10px_30px_var(--tooltip-shadow)]"
         >
-          {results.length ? (
-            results.map((result, index) => (
+          {results.map((result, index) => (
               <li
                 key={result.key}
                 role="option"
@@ -200,12 +203,14 @@ export function SiteSearch() {
                 </span>
                 <span className="shrink-0 text-xs text-muted">{result.hint}</span>
               </li>
-            ))
-          ) : (
+            ))}
+          {isLoading && results.length < MAX_RESULTS ? (
+            <li className="px-2.5 py-2 text-sm text-muted">Loading players…</li>
+          ) : !results.length ? (
             <li className="px-2.5 py-2 text-sm text-muted">
               No team or player matches “{query.trim()}”.
             </li>
-          )}
+          ) : null}
         </ul>
       ) : null}
     </div>

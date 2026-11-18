@@ -191,9 +191,13 @@ export async function getPlayerDirectory(): Promise<LeaguePlayer[]> {
     (season) => season !== league.gameDays?.season && season !== league.season,
   );
 
-  for (const season of olderSeasons) {
-    // A season that cannot be read only leaves its players out of search.
-    const seasonPlayers = await getSeasonPlayers(season).catch(() => []);
+  // A season that cannot be read only leaves its players out of search.
+  const olderPlayers = await Promise.all(
+    olderSeasons.map((season) => getSeasonPlayers(season).catch(() => [])),
+  );
+
+  // Newest season first, so a player is listed under his latest team.
+  for (const seasonPlayers of olderPlayers) {
     for (const player of seasonPlayers) {
       if (!players.has(player.id)) {
         players.set(player.id, player);
