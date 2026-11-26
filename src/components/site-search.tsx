@@ -5,6 +5,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { TeamLogo } from "@/components/team-logo";
 import type { LeaguePlayer } from "@/lib/league-data";
 import { getTeamFullName, TEAM_ABBREVIATIONS } from "@/lib/teams";
+import { getPlayerPath } from "@/lib/player-path";
 
 const MAX_RESULTS = 8;
 
@@ -54,7 +55,7 @@ function findResults(query: string, players: LeaguePlayer[]): Result[] {
     ...TEAM_RESULTS,
     ...players.map((player) => ({
       key: `player-${player.id}`,
-      href: `/players/${player.id}`,
+      href: getPlayerPath(player.id, player.name),
       label: player.name,
       teamAbbr: player.teamAbbr,
       hint: player.teamAbbr,

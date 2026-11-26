@@ -23,6 +23,7 @@ import type {
   TeamGameSeasonType,
   TeamPlayerSeason,
 } from "@/lib/team-data";
+import { getPlayerPath } from "@/lib/player-path";
 
 type RosterFilter = "all" | "regular" | "playoffs" | "other";
 type RosterRow = {
@@ -336,7 +337,7 @@ export function RosterTable({
                   <tr key={row.playerId}>
                     <td>
                       <Link
-                        href={`/players/${row.playerId}${seasonPathSuffix}`}
+                        href={`${getPlayerPath(row.playerId, row.name)}${seasonPathSuffix}`}
                         className="font-medium hover:underline"
                       >
                         {row.name}

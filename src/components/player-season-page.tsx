@@ -26,6 +26,7 @@ import {
   isKnownSeason,
 } from "@/lib/seasons";
 import { getTeamColorVars, getTeamFullName, isTeamAbbreviation } from "@/lib/teams";
+import { getPlayerPath } from "@/lib/player-path";
 
 // `season` is omitted on the bare /players/{id} URL, which shows the newest
 // season the player has data for.
@@ -100,6 +101,9 @@ export async function getPlayerSeasonMetadata(
 
   return {
     title: `${playerPage.player.name} ${playerPage.season}`,
+    alternates: {
+      canonical: `${getPlayerPath(playerPage.player.id, playerPage.player.name)}${params.season ? `/${params.season}` : ""}`,
+    },
     description: `${playerPage.player.name}'s ${playerPage.season} season, game by game: when he was on the floor and every shot, rebound and assist on one timeline.${statLine}`,
   };
 }
@@ -172,7 +176,7 @@ export async function PlayerSeasonPage(params: PlayerSeasonParams) {
               </div>
             </div>
             <SeasonSwitcher
-              basePath={`/players/${player.id}`}
+              basePath={getPlayerPath(player.id, player.name)}
               seasons={seasons}
               selectedSeason={playerPage.season}
             />

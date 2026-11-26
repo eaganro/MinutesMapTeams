@@ -20,6 +20,7 @@ import {
 } from "@/lib/live";
 import type { TeamGame } from "@/lib/team-data";
 import { buildGameTimeline } from "@/lib/timeline";
+import { getPlayerPath } from "@/lib/player-path";
 
 const COLUMNS: ChartColumn[] = [
   { key: "min", label: "MIN" },
@@ -93,7 +94,7 @@ export function TeamGameChart({
     name: player.name,
     label: player.playerId ? (
       <Link
-        href={`/players/${player.playerId}${seasonPathSuffix}`}
+        href={`${getPlayerPath(player.playerId, player.name)}${seasonPathSuffix}`}
         className="hover:underline"
       >
         {player.name}
@@ -166,7 +167,7 @@ export function TeamGameChart({
             key: player.playerId || player.name,
             name: player.name,
             href: player.playerId
-              ? `/players/${player.playerId}${seasonPathSuffix}`
+              ? `${getPlayerPath(player.playerId, player.name)}${seasonPathSuffix}`
               : undefined,
             box: player.box,
           }))}

@@ -12,6 +12,7 @@ import { TeamLogo } from "@/components/team-logo";
 import type { DayPlayer } from "@/lib/game-days";
 import { formatOpponentLabel, formatSigned, formatWholeMinutes } from "@/lib/format";
 import { getSeasonPathSuffix } from "@/lib/seasons";
+import { getPlayerPath } from "@/lib/player-path";
 
 const COLUMNS: ChartColumn[] = [
   { key: "min", label: "MIN" },
@@ -70,7 +71,7 @@ export function DayChart({ players, ariaLabel, initialCount }: DayChartProps) {
           game={player}
           playerName={player.name}
           seasonPathSuffix={seasonPathSuffix}
-          playerHref={`/players/${player.playerId}${seasonPathSuffix}`}
+          playerHref={`${getPlayerPath(player.playerId, player.name)}${seasonPathSuffix}`}
         />
       ),
     };
